@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 type Config struct {
@@ -77,7 +80,7 @@ func SetConfig(filePath string, v Config) error {
 	return fmt.Errorf("the filepath is incorrect: %s", filePath)
 }
 
-func CreatePathname(dir, filename string) string {
+func CreateVideo(dir, filename string) string {
 	re := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
 	filename = re.ReplaceAllString(filename, "_")
 	filePath := filepath.Join(dir, fmt.Sprintf("%s.mp4", filename))
@@ -86,5 +89,50 @@ func CreatePathname(dir, filename string) string {
 		filePath = filepath.Join(dir, fmt.Sprintf("%s (%v).mp4", filename, counter))
 		counter++
 	}
+
+	_, err := os.Create(filePath)
+	if err != nil {
+		log.Fatal("Failted to create new video")
+	}
 	return filePath
+}
+
+func AppendToFile(filePath string, data []byte) error {
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open the files: %w", err)
+	}
+	_, err = file.Write(data)
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
+}
+
+func getFullURL(u string) string {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return ""
+	}
+	v, _ := path.Split(parsed.Path)
+	fullURL := &url.URL{
+		Scheme: "https",
+		Host:   parsed.Host,
+		Path:   v,
+	}
+	return fullURL.String()
+}
+
+func ConstructURL(urls []string, quality string) string {
+	var u string
+	if quality != "" {
+		for _, x := range urls {
+			if strings.Contains(x, quality) {
+				u = getFullURL(x)
+			}
+		}
+	} else {
+		u = getFullURL(urls[0])
+	}
+	return u
 }

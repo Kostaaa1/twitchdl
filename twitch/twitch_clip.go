@@ -52,7 +52,12 @@ func (c *Client) GetClipCreds(slug string) (ClipCredentials, error) {
 		} `json:"data"`
 	}
 	var p payload
-	if err := c.do(req, &p); err != nil {
+
+	resp, err := c.do(req)
+	if err != nil {
+		return ClipCredentials{}, err
+	}
+	if err := c.decodeJSONResponse(resp, &p); err != nil {
 		return ClipCredentials{}, err
 	}
 
@@ -123,7 +128,11 @@ func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
 		} `json:"data"`
 	}
 	var p payload
-	if err := c.do(req, &p); err != nil {
+	resp, err := c.do(req)
+	if err != nil {
+		return ClipMetadata{}, err
+	}
+	if err := c.decodeJSONResponse(resp, &p); err != nil {
 		return ClipMetadata{}, err
 	}
 	return p.Data.Clip, nil

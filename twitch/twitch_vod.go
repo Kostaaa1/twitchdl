@@ -40,9 +40,9 @@ func (c *Client) GetVideoCredentials(id string) (string, string, error) {
 		} `json:"data"`
 	}
 	var p payload
-
-	if err := c.do(req, &p); err != nil {
-		return "", "", fmt.Errorf("failed to get the response body: %s", err)
+	resp, err := c.do(req)
+	if err := c.decodeJSONResponse(resp, &p); err != nil {
+		return "", "", err
 	}
 	return p.Data.VideoPlaybackAccessToken.Value, p.Data.VideoPlaybackAccessToken.Signature, nil
 }
@@ -122,9 +122,12 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 		} `json:"data"`
 	}
 	var p payload
-	if err := c.do(req, &p); err != nil {
+	resp, err := c.do(req)
+	if err != nil {
 		return VideoMetadata{}, err
 	}
-
+	if err := c.decodeJSONResponse(resp, &p); err != nil {
+		return VideoMetadata{}, err
+	}
 	return p.Data.Video, nil
 }

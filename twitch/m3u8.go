@@ -3,11 +3,11 @@ package twitch
 import (
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
+	"net/http"
 	"strings"
 	"time"
 
+	utils "github.com/Kostaaa1/twitchdl/utils/file"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -25,23 +25,28 @@ type MediaPlaylist struct {
 	SegStartIndex int
 }
 
+func (c *Client) GetMediaPlaylist(u string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	m3u8, err := c.readResponseBody(resp)
+	if err != nil {
+		return nil, err
+	}
+	return m3u8, nil
+}
+
 func (c *Client) DownloadVOD(u, filePath string, start, end time.Duration) error {
 	playlist := MediaPlaylist{}
 	tsFileURL := fmt.Sprintf("%sindex-dvr.m3u8", u)
-
-	resp, err := c.client.Get(tsFileURL)
+	m3u8, err := c.GetMediaPlaylist(tsFileURL)
 	if err != nil {
-		return fmt.Errorf("download failed. failed at getting the ts files from playlist: %s", err)
-	}
-	defer resp.Body.Close()
-
-	if s := resp.StatusCode; s < 200 || s >= 300 {
-		return fmt.Errorf("status code: %v. Download failed. failed at getting the ts files from playlist: %s", s, err)
-	}
-
-	m3u8, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read body bytes: %s", err)
+		return err
 	}
 
 	lines := strings.Split(string(m3u8), "\n")
@@ -82,56 +87,66 @@ func (c *Client) DownloadVOD(u, filePath string, start, end time.Duration) error
 		progressbar.OptionSetDescription("Downloading: "),
 	)
 
-	segments := []string{}
-	for i := 0; i < len(segmentLines); i++ {
-		if strings.HasPrefix(segmentLines[i], "#EXTINF") {
-			chunkURL := fmt.Sprintf("%s%s", u, segmentLines[i+1])
-			fname, err := c.downloadSegment(chunkURL)
-			if err != nil {
-				fmt.Printf("Failed to download segment %s: %s", segmentLines[i+1], fname)
-				break
+	for _, tsFile := range segmentLines {
+		if strings.HasSuffix(tsFile, ".ts") {
+			chunkURL := fmt.Sprintf("%s%s", u, tsFile)
+			if err := c.downloadAndAppend(filePath, chunkURL); err != nil {
+				fmt.Println("FAILED TO DOWNLOAD AND APPEND: ", chunkURL)
 			}
-			segments = append(segments, fname)
 			bar.Add(1)
 		}
-	}
-	if err := writeSegments(filePath, segments); err != nil {
-		fmt.Println("\nFailed to concat the segments: ", err)
 	}
 	return nil
 }
 
-func (c *Client) downloadSegment(tsFile string) (string, error) {
+func (c *Client) downloadAndAppend(outPath, tsFile string) error {
 	resp, err := c.client.Get(tsFile)
 	if err != nil {
 		err := fmt.Errorf("failed to get the tsFile content: %s", err)
 		fmt.Println(err)
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
-	file, err := os.CreateTemp("", "segment-*.ts")
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		err := fmt.Errorf("failed to create temp: %s", err)
-		fmt.Println(err)
-		return "", err
+		return fmt.Errorf("failed ot read segment respbody: %w", err)
 	}
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		err := fmt.Errorf("failed to io.Copy into file: %s", err)
-		fmt.Println(err)
-		return "", err
-	}
-	return file.Name(), nil
-}
-
-func writeSegments(filePath string, segments []string) error {
-	cmd := exec.Command("ffmpeg", "-f", "mpegts", "-i", "concat:"+strings.Join(segments, "|"), "-c", "copy", filePath)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Printf("failed to concatenate segments: %s", err)
-		return fmt.Errorf("failed to concatenate segments: %s", err)
+	if err = utils.AppendToFile(outPath, b); err != nil {
+		return fmt.Errorf("failed to append segment bytes to file: %w", err)
 	}
 	return nil
 }
+
+// func (c *Client) downloadSegment(tsFile string) (string, error) {
+// 	resp, err := c.client.Get(tsFile)
+// 	if err != nil {
+// 		err := fmt.Errorf("failed to get the tsFile content: %s", err)
+// 		fmt.Println(err)
+// 		return "", err
+// 	}
+// 	defer resp.Body.Close()
+// 	file, err := os.CreateTemp("", "segment-*.ts")
+// 	if err != nil {
+// 		err := fmt.Errorf("failed to create temp: %s", err)
+// 		fmt.Println(err)
+// 		return "", err
+// 	}
+// 	_, err = io.Copy(file, resp.Body)
+// 	if err != nil {
+// 		err := fmt.Errorf("failed to io.Copy into file: %s", err)
+// 		fmt.Println(err)
+// 		return "", err
+// 	}
+// 	return file.Name(), nil
+// }
+
+// func writeSegments(filePath string, segments []string) error {
+// 	cmd := exec.Command("ffmpeg", "-f", "mpegts", "-i", "concat:"+strings.Join(segments, "|"), "-c", "copy", filePath)
+// 	err := cmd.Run()
+// 	if err != nil {
+// 		fmt.Printf("failed to concatenate segments: %s", err)
+// 		return fmt.Errorf("failed to concatenate segments: %s", err)
+// 	}
+// 	return nil
+// }
