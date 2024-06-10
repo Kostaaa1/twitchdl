@@ -41,6 +41,9 @@ func (c *Client) GetVideoCredentials(id string) (string, string, error) {
 	}
 	var p payload
 	resp, err := c.do(req)
+	if err != nil {
+		return "", "", err
+	}
 	if err := c.decodeJSONResponse(resp, &p); err != nil {
 		return "", "", err
 	}

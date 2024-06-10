@@ -25,8 +25,8 @@ type MediaPlaylist struct {
 	SegStartIndex int
 }
 
-func (c *Client) GetMediaPlaylist(u string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, u, nil)
+func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, URL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -41,9 +41,9 @@ func (c *Client) GetMediaPlaylist(u string) ([]byte, error) {
 	return m3u8, nil
 }
 
-func (c *Client) DownloadVOD(u, filePath string, start, end time.Duration) error {
+func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) error {
 	playlist := MediaPlaylist{}
-	tsFileURL := fmt.Sprintf("%sindex-dvr.m3u8", u)
+	tsFileURL := fmt.Sprintf("%sindex-dvr.m3u8", URL)
 	m3u8, err := c.GetMediaPlaylist(tsFileURL)
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func (c *Client) DownloadVOD(u, filePath string, start, end time.Duration) error
 
 	for _, tsFile := range segmentLines {
 		if strings.HasSuffix(tsFile, ".ts") {
-			chunkURL := fmt.Sprintf("%s%s", u, tsFile)
+			chunkURL := fmt.Sprintf("%s%s", URL, tsFile)
 			if err := c.downloadAndAppend(filePath, chunkURL); err != nil {
 				fmt.Println("FAILED TO DOWNLOAD AND APPEND: ", chunkURL)
 			}

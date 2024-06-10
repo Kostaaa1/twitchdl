@@ -14,27 +14,29 @@ const selectors = {
 
 (async () => {
   const { argv } = process;
-  if (argv.length < 3) {
-    throw new Error("not enough args. You need to provide an URL to listen to.");
+  if (argv.length < 4) {
+    throw new Error("not enough args. You need to provide an twitch URL and PORT to.");
   }
   const url = argv[2];
+  const port = argv[3];
 
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox"],
     executablePath: "/usr/bin/google-chrome",
   });
+
   const page = await browser.newPage();
   await page.setRequestInterception(true);
   let shouldListen = false;
-
   let urls = [];
+
   page.on("request", async (request) => {
     const url = request.url();
     if (shouldListen && url.endsWith(".ts")) {
       if (!urls.includes(url)) {
         urls.push(url);
-        axios.post("http://localhost:8080/segment", {
+        await axios.post(`http://localhost:${port}/segment`, {
           status: "success",
           message: url,
         });
@@ -51,13 +53,10 @@ const selectors = {
   if (startWatching) {
     await startWatching.click();
   }
-
   await page.waitForSelector(selectors.settings);
   await page.click(selectors.settings);
-
   await page.waitForSelector(selectors.quality);
   await page.click(selectors.quality);
-
   await page.waitForSelector(selectors.quality1080p);
   await page.click(selectors.quality1080p);
 

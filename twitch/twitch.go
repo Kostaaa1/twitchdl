@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +46,7 @@ type VideoType int
 const (
 	TypeClip VideoType = iota
 	TypeVOD
+	TypeLivestream
 )
 
 func (c *Client) Name(vType VideoType, id string) (string, error) {
@@ -77,6 +80,11 @@ func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
 
 func (c *Client) ID(URL string) (string, VideoType, error) {
 	u, err := url.Parse(URL)
+	s := strings.Split(u.Path, "/")
+
+	if len(s) == 2 {
+		return s[1], TypeLivestream, nil
+	}
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to parse the URL: %s", err)
 	}
@@ -91,7 +99,7 @@ func (c *Client) ID(URL string) (string, VideoType, error) {
 		_, id := path.Split(u.Path)
 		return id, TypeVOD, nil
 	}
-	return "", 0, nil
+	return "", 0, fmt.Errorf("failed to get the information from the URL")
 }
 
 func New(client *http.Client, clientID string) Client {
@@ -169,7 +177,7 @@ func (c *Client) AppendToFile(filename string, data []byte) error {
 	return err
 }
 
-func (c *Client) handlePuppeteerScript(w http.ResponseWriter, r *http.Request, outpath, addr string) {
+func (c *Client) RequestInterceptor(w http.ResponseWriter, r *http.Request, outpath, addr string) {
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal("reading body failed")
@@ -197,26 +205,35 @@ func (c *Client) handlePuppeteerScript(w http.ResponseWriter, r *http.Request, o
 }
 
 func (c *Client) RecorcdStream(outPath, streamURL string) {
-	serverStarted := make(chan bool)
+	serverStarted := make(chan int)
+	var port int
 	go func(URL string) {
+		listener, err := net.Listen("tcp", ":0")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer listener.Close()
+		port = listener.Addr().(*net.TCPAddr).Port
+
 		http.HandleFunc("/segment", func(w http.ResponseWriter, r *http.Request) {
-			c.handlePuppeteerScript(w, r, outPath, streamURL)
+			c.RequestInterceptor(w, r, outPath, streamURL)
 		})
-		serverStarted <- true
-		if err := http.ListenAndServe(":8080", nil); err != nil {
+		serverStarted <- port
+
+		if err := http.Serve(listener, nil); err != nil {
 			log.Fatal(err)
 		}
 	}(streamURL)
+
 	<-serverStarted
 
-	cmd := exec.Command("node", "./scripts/index.js", streamURL)
+	cmd := exec.Command("node", "./scripts/index.js", streamURL, strconv.Itoa(port))
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("error running the JS script: %s", err)
+		log.Fatal(err)
 	}
 }
 
-func (c *Client) BatchDownload(URLs, outPath string) error {
-	urls := strings.Split(URLs, ",")
+func (c *Client) BatchDownload(urls []string, outPath string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(urls))
 
@@ -247,14 +264,28 @@ func (c *Client) BatchDownload(URLs, outPath string) error {
 	return nil
 }
 
-// downloads clip
+func (c *Client) IsChannelLive(channelName string) (bool, error) {
+	u := fmt.Sprintf("https://decapi.me/twitch/uptime/%s", channelName)
+	resp, err := http.Get(u)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	s := string(b)
+	return !strings.Contains(s, "offline"), nil
+}
+
 func (c *Client) DownloadClip(filepath, slug string) error {
+
 	out, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to create the outPath. Maybe the output that is provided is incorrect: %s", err)
 	}
 	defer out.Close()
-
 	creds, err := c.GetClipCreds(slug)
 	if err != nil {
 		return err
@@ -263,7 +294,6 @@ func (c *Client) DownloadClip(filepath, slug string) error {
 	if err != nil {
 		return err
 	}
-
 	_, err = io.Copy(out, stream)
 	if err != nil {
 		return fmt.Errorf("failed to write the stream into outPath: %s", err)
@@ -283,7 +313,6 @@ func (c *Client) DownloadVideo(name, id, quality string, start, end time.Duratio
 	serialized := string(m3u8)
 	urls := c.GetMediaPlaylists(serialized)
 	u := utils.ConstructURL(urls, quality)
-
 	if err := c.DownloadVOD(u, name, start, end); err != nil {
 		return err
 	}
