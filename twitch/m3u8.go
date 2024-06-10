@@ -117,36 +117,3 @@ func (c *Client) downloadAndAppend(outPath, tsFile string) error {
 	}
 	return nil
 }
-
-// func (c *Client) downloadSegment(tsFile string) (string, error) {
-// 	resp, err := c.client.Get(tsFile)
-// 	if err != nil {
-// 		err := fmt.Errorf("failed to get the tsFile content: %s", err)
-// 		fmt.Println(err)
-// 		return "", err
-// 	}
-// 	defer resp.Body.Close()
-// 	file, err := os.CreateTemp("", "segment-*.ts")
-// 	if err != nil {
-// 		err := fmt.Errorf("failed to create temp: %s", err)
-// 		fmt.Println(err)
-// 		return "", err
-// 	}
-// 	_, err = io.Copy(file, resp.Body)
-// 	if err != nil {
-// 		err := fmt.Errorf("failed to io.Copy into file: %s", err)
-// 		fmt.Println(err)
-// 		return "", err
-// 	}
-// 	return file.Name(), nil
-// }
-
-// func writeSegments(filePath string, segments []string) error {
-// 	cmd := exec.Command("ffmpeg", "-f", "mpegts", "-i", "concat:"+strings.Join(segments, "|"), "-c", "copy", filePath)
-// 	err := cmd.Run()
-// 	if err != nil {
-// 		fmt.Printf("failed to concatenate segments: %s", err)
-// 		return fmt.Errorf("failed to concatenate segments: %s", err)
-// 	}
-// 	return nil
-// }

@@ -12,7 +12,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	utils "github.com/Kostaaa1/twitchdl/utils/file"
@@ -64,7 +63,6 @@ func (c *Client) Name(vType VideoType, id string) (string, error) {
 		}
 		name = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
 	}
-
 	return name, nil
 }
 
@@ -138,14 +136,6 @@ func (c *Client) readResponseBody(resp *http.Response) ([]byte, error) {
 	return b, nil
 }
 
-func lockFile(fd uintptr) error {
-	return syscall.Flock(int(fd), syscall.LOCK_EX)
-}
-
-func unlockFile(fd uintptr) error {
-	return syscall.Flock(int(fd), syscall.LOCK_UN)
-}
-
 func (c *Client) fetch(url string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -175,11 +165,6 @@ func (c *Client) AppendToFile(filename string, data []byte) error {
 	}
 	defer f.Close()
 
-	if err := lockFile(f.Fd()); err != nil {
-		return err
-	}
-	defer unlockFile(f.Fd())
-
 	_, err = f.Write(data)
 	return err
 }
@@ -195,51 +180,41 @@ func (c *Client) handlePuppeteerScript(w http.ResponseWriter, r *http.Request, o
 	}
 
 	go func() {
-		m3bytes, err := c.fetch(res.Message)
+		tsBytes, err := c.fetch(res.Message)
 		if err != nil {
-			log.Fatal(err)
-		}
-		m3Lines := strings.Split(string(m3bytes), "\n")
-		lastTS := strings.Split(m3Lines[len(m3Lines)-2], "#EXT-X-TWITCH-PREFETCH:")[1]
-
-		tsBytes, err := c.fetch(lastTS)
-		if err != nil {
-			log.Fatal(err)
+			fmt.Println("fetching tsBytes error in goroutine")
+			return
 		}
 		log.Printf("size of segment: %d bytes\n", len(tsBytes))
-
-		if err := c.AppendToFile(outpath, tsBytes); err != nil {
-			http.Error(w, "Failed to append segment", http.StatusInternalServerError)
-			log.Println("failed to append segment:", err)
-			return
+		if len(tsBytes) > 100000 {
+			if err := c.AppendToFile(outpath, tsBytes); err != nil {
+				http.Error(w, "Failed to append segment", http.StatusInternalServerError)
+				log.Println("failed to append segment:", err)
+				return
+			}
 		}
 	}()
 }
 
-func (c *Client) StreamListener(outPath, addr string) {
+func (c *Client) RecorcdStream(outPath, streamURL string) {
 	serverStarted := make(chan bool)
 	go func(URL string) {
 		http.HandleFunc("/segment", func(w http.ResponseWriter, r *http.Request) {
-			c.handlePuppeteerScript(w, r, outPath, addr)
+			c.handlePuppeteerScript(w, r, outPath, streamURL)
 		})
 		serverStarted <- true
 		if err := http.ListenAndServe(":8080", nil); err != nil {
 			log.Fatal(err)
 		}
-	}(addr)
-
+	}(streamURL)
 	<-serverStarted
 
-	cmd := exec.Command("node", "./scripts/index.js", addr)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
+	cmd := exec.Command("node", "./scripts/index.js", streamURL)
 	if err := cmd.Run(); err != nil {
 		log.Fatalf("error running the JS script: %s", err)
 	}
 }
 
-// Download vods or clip concurrently
 func (c *Client) BatchDownload(URLs, outPath string) error {
 	urls := strings.Split(URLs, ",")
 	var wg sync.WaitGroup
@@ -264,7 +239,6 @@ func (c *Client) BatchDownload(URLs, outPath string) error {
 			}
 		}(URL)
 	}
-
 	wg.Wait()
 	close(errChan)
 	for err := range errChan {

@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	inputURLs, listenURL, inputURL, quality string
+	inputURLs, recordURL, inputURL, quality string
 	defaultOut, clientID, output            string
 	start, end                              time.Duration
 	logPath                                 bool
@@ -62,7 +62,7 @@ func main() {
 	flag.StringVar(&quality, "quality", "", "[1080p 720p 480p 360p]. Example: --quality 1080p (optional)")
 	flag.StringVar(&defaultOut, "set-default-out", "", "Provide the default path where to store the downloaded videos. Example: --set-default-out ./home/user/downloads")
 	flag.BoolVar(&logPath, "default-out", false, "Your default output path.")
-	flag.StringVar(&listenURL, "listen", "", "Listen to requests and download them. Example: --listen https:twitch.tv/pokimane")
+	flag.StringVar(&recordURL, "record", "", "Listen to requests and download them. Example: --listen https:twitch.tv/pokimane")
 	flag.Parse()
 
 	out := getOutPath()
@@ -74,14 +74,13 @@ func main() {
 
 func run(outPath string) error {
 	api := twitch.New(http.DefaultClient, clientID)
-
-	if listenURL != "" {
-		newPath := fmt.Sprintf("outpat-%s.mp4", time.Now().Format("2006-01-02-15-04-05"))
+	if recordURL != "" {
+		newPath := fmt.Sprintf("output-%s.mp4", time.Now().Format("2006-01-02-15-04-05"))
 		f, err := os.Create(newPath)
 		if err != nil {
 			return err
 		}
-		api.StreamListener(f.Name(), listenURL)
+		api.RecorcdStream(f.Name(), recordURL)
 		return nil
 	}
 
@@ -96,6 +95,7 @@ func run(outPath string) error {
 	if err != nil {
 		return err
 	}
+
 	name, err := api.PathName(vType, id, outPath)
 	if err != nil {
 		return err
