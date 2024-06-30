@@ -61,8 +61,6 @@ func main() {
 	flag.DurationVar(&end, "end", time.Duration(0), "The end of the VOD subset. It only works with VODs and it needs to be in this format: '1h33m0s' (optional)")
 	flag.StringVar(&quality, "quality", "", "[1080p 720p 480p 360p]. Example: -quality 1080p (optional)")
 	flag.StringVar(&defaultOut, "set-default-output", "", "Provide the default path where to store the downloaded videos. Example: -set-default-out ./home/user/downloads")
-	// flag.StringVar(&clientID, "client-id", "", "The Client ID to use the helix API.")
-
 	flag.Parse()
 
 	out := getOutPath()
@@ -74,7 +72,6 @@ func main() {
 
 func run(outPath string) error {
 	api := twitch.New(http.DefaultClient, clientID)
-
 	if recordURL != "" {
 		id, _, err := api.ID(recordURL)
 		if err != nil {
@@ -90,13 +87,12 @@ func run(outPath string) error {
 			if err != nil {
 				return err
 			}
-			api.RecorcdStream(f.Name(), recordURL)
+			api.RecordLivetream(f.Name(), recordURL)
 		} else {
 			return fmt.Errorf("the channel %s is not live. In order to record the livestream, the channel needs to be live", id)
 		}
 		return nil
 	}
-
 	batch := strings.Split(inputURL, ",")
 	if len(batch) > 1 {
 		if err := api.BatchDownload(batch, outPath); err != nil {
@@ -104,17 +100,14 @@ func run(outPath string) error {
 		}
 		return nil
 	}
-
 	id, vType, err := api.ID(inputURL)
 	if err != nil {
 		return err
 	}
-
 	name, err := api.PathName(vType, id, outPath)
 	if err != nil {
 		return err
 	}
-
 	if inputURL != "" {
 		switch vType {
 		case twitch.TypeClip:

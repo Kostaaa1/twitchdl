@@ -81,7 +81,6 @@ func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
 func (c *Client) ID(URL string) (string, VideoType, error) {
 	u, err := url.Parse(URL)
 	s := strings.Split(u.Path, "/")
-
 	if len(s) == 2 {
 		return s[1], TypeLivestream, nil
 	}
@@ -186,7 +185,6 @@ func (c *Client) RequestInterceptor(w http.ResponseWriter, r *http.Request, outp
 	if err := json.Unmarshal(b, &res); err != nil {
 		log.Fatalf("failed to unmarshal: %s", err)
 	}
-
 	go func() {
 		tsBytes, err := c.fetch(res.Message)
 		if err != nil {
@@ -204,7 +202,7 @@ func (c *Client) RequestInterceptor(w http.ResponseWriter, r *http.Request, outp
 	}()
 }
 
-func (c *Client) RecorcdStream(outPath, streamURL string) {
+func (c *Client) RecordLivetream(outPath, streamURL string) {
 	serverStarted := make(chan int)
 	var port int
 	go func(URL string) {
@@ -213,13 +211,12 @@ func (c *Client) RecorcdStream(outPath, streamURL string) {
 			log.Fatal(err)
 		}
 		defer listener.Close()
-		port = listener.Addr().(*net.TCPAddr).Port
 
+		port = listener.Addr().(*net.TCPAddr).Port
 		http.HandleFunc("/segment", func(w http.ResponseWriter, r *http.Request) {
 			c.RequestInterceptor(w, r, outPath, streamURL)
 		})
 		serverStarted <- port
-
 		if err := http.Serve(listener, nil); err != nil {
 			log.Fatal(err)
 		}
