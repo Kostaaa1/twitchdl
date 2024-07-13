@@ -1,9 +1,7 @@
-import puppeteer from "puppeteer";
 import axios from "axios";
+import puppeteer from "puppeteer";
 
 const selectors = {
-  startWatching:
-    "#channel-player-gate > div > div > div.Layout-sc-1xcs6mc-0.idFuL > div > button > div > div",
   settings:
     "#channel-player > div > div.Layout-sc-1xcs6mc-0.kqyuWK.player-controls__right-control-group > div:nth-child(1) > div:nth-child(2) > div > button",
   quality:
@@ -37,32 +35,29 @@ const selectors = {
       if (shouldListen && url.endsWith(".ts")) {
         if (!urls.includes(url)) {
           urls.push(url);
-          axios.post(`http://localhost:${port}/segment`, {
-            status: "success",
-            message: url,
-          });
+          axios.post(`http://localhost:${port}/segment`, url);
         } else {
           if (urls.length === 10) urls = [];
         }
       }
       request.continue();
     });
-    await page.goto(url);
 
-    const startWatching = await page.$(selectors.startWatching);
-    if (startWatching) await startWatching.click();
+    await page.goto(url);
+    await page.waitForSelector('div[data-a-target*="tw-core-button-label-text"]');
+    await page.$$eval('div[data-a-target*="tw-core-button-label-text"]', (buttons) => {
+      const btn = buttons.find((b) => b.textContent.trim() === "Start Watching");
+      if (btn) {
+        btn.click();
+      }
+    });
+
     await page.waitForSelector(selectors.settings);
-    console.log("awaited settings");
     await page.click(selectors.settings);
-    console.log("clicked settings");
     await page.waitForSelector(selectors.quality);
-    console.log("awaited quality");
     await page.click(selectors.quality);
-    console.log("clicked quality");
     await page.waitForSelector(selectors.quality1080p);
-    console.log("awaited 1080");
     await page.click(selectors.quality1080p);
-    console.log("clicked 1080");
 
     shouldListen = true;
   } catch (error) {

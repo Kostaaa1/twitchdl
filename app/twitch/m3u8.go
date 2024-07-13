@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	utils "github.com/Kostaaa1/twitchdl/utils/file"
+	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -42,13 +42,14 @@ func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
 }
 
 func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) error {
+	fmt.Println(filePath)
 	playlist := MediaPlaylist{}
 	tsFileURL := fmt.Sprintf("%sindex-dvr.m3u8", URL)
+
 	m3u8, err := c.GetMediaPlaylist(tsFileURL)
 	if err != nil {
 		return err
 	}
-
 	lines := strings.Split(string(m3u8), "\n")
 	var segmentDuration float64 = 10
 	segStart := -1
@@ -73,7 +74,6 @@ func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) err
 	if segStart == -1 {
 		return fmt.Errorf("no segments found in the m3u8 playlist")
 	}
-
 	var segmentLines []string
 	if e == 0 {
 		segmentLines = lines[segStart:][s:]
@@ -96,6 +96,7 @@ func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) err
 			bar.Add(1)
 		}
 	}
+
 	return nil
 }
 
