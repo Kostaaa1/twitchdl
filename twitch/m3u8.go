@@ -42,7 +42,6 @@ func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
 }
 
 func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) error {
-	fmt.Println(filePath)
 	playlist := MediaPlaylist{}
 	tsFileURL := fmt.Sprintf("%sindex-dvr.m3u8", URL)
 

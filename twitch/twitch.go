@@ -214,7 +214,6 @@ func (c *Client) recordLivestream(outPath, streamURL, scriptPath string) {
 		log.Fatal(err)
 	}
 }
-
 func (c *Client) StartRecording(recordURL, outpath, jsPath string) error {
 	id, _, err := c.ID(recordURL)
 	if err != nil {
@@ -281,7 +280,7 @@ func (c *Client) IsChannelLive(channelName string) (bool, error) {
 	return !strings.Contains(string(b), "offline"), nil
 }
 
-func (c *Client) DownloadClip(filepath, slug string) error {
+func (c *Client) DownloadClip(slug, filepath string) error {
 	out, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("failed to create the outPath. Maybe the output that is provided is incorrect: %s", err)

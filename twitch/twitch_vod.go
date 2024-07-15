@@ -15,6 +15,19 @@ type VODCredentials struct {
 }
 
 func (c *Client) GetVideoCredentials(id string) (string, string, error) {
+	liveStrea := `
+	{
+    "operationName": "PlaybackAccessToken_Template",
+    "query": "query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}",
+    "variables": {
+        "isLive": true,
+        "login": "sodapoppin",
+        "isVod": false,
+        "vodID": "",
+        "playerType": "site"
+    }
+}`
+
 	gqlPayload := `{
         "operationName": "PlaybackAccessToken_Template",
         "query": "query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}",
@@ -26,7 +39,6 @@ func (c *Client) GetVideoCredentials(id string) (string, string, error) {
             "playerType": "site"
         }
     }`
-
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, id))
 	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
 	if err != nil {
