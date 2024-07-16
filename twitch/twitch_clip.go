@@ -38,14 +38,6 @@ func (c *Client) GetClipCreds(slug string) (ClipCredentials, error) {
             }
         }
     }`
-
-	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
-	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
-	if err != nil {
-		return ClipCredentials{}, fmt.Errorf("failed to create request to get the access token: %s", err)
-	}
-	req.Header.Set("Client-Id", c.gqlClientID)
-
 	type payload struct {
 		Data struct {
 			Clip ClipCredentials `json:"clip"`
@@ -53,19 +45,17 @@ func (c *Client) GetClipCreds(slug string) (ClipCredentials, error) {
 	}
 	var p payload
 
-	resp, err := c.do(req)
-	if err != nil {
+	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
+	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
 		return ClipCredentials{}, err
 	}
-	if err := c.decodeJSONResponse(resp, &p); err != nil {
-		return ClipCredentials{}, err
-	}
-
 	return p.Data.Clip, nil
 }
 
+// separate functions - make universal function for constructing these usher urls
 func (c *Client) ClipStream(clip ClipCredentials) (io.ReadCloser, error) {
 	URL := fmt.Sprintf("%s?sig=%s&token=%s", clip.VideoQualities[0].SourceURL, url.QueryEscape(clip.PlaybackAccessToken.Signature), url.QueryEscape(clip.PlaybackAccessToken.Value))
+
 	req, err := http.NewRequest(http.MethodGet, URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the new request for stream: %s", err)
@@ -75,6 +65,7 @@ func (c *Client) ClipStream(clip ClipCredentials) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stream response: %s", err)
 	}
+
 	return resp.Body, nil
 }
 
@@ -115,24 +106,14 @@ func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
         }
     }`
 
-	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
-	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
-	if err != nil {
-		return ClipMetadata{}, fmt.Errorf("failed to create request to get the clip data: %s", err)
-	}
-	req.Header.Set("Client-Id", c.gqlClientID)
-
 	type payload struct {
 		Data struct {
 			Clip ClipMetadata `json:"clip"`
 		} `json:"data"`
 	}
 	var p payload
-	resp, err := c.do(req)
-	if err != nil {
-		return ClipMetadata{}, err
-	}
-	if err := c.decodeJSONResponse(resp, &p); err != nil {
+	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
+	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
 		return ClipMetadata{}, err
 	}
 	return p.Data.Clip, nil

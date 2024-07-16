@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/boltdb/bolt"
 )
 
@@ -20,11 +19,11 @@ var (
 )
 
 func SetupDB() (*bolt.DB, error) {
-	p, err := utils.IncludeExecPath(string(dbName))
-	if err != nil {
-		return nil, err
-	}
-	db, err := bolt.Open(p, 0600, nil)
+	// p, err := utils.IncludeExecPath(string(dbName))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	db, err := bolt.Open(string(dbName), 0600, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could no open db: %v", err)
 	}

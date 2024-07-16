@@ -1,4 +1,4 @@
-package utils
+package file
 
 import (
 	"fmt"
@@ -39,10 +39,15 @@ func CreateVideo(dir, filename string) string {
 		filePath = filepath.Join(dir, fmt.Sprintf("%s (%v).mp4", filename, counter))
 		counter++
 	}
-	_, err := os.Create(filePath)
+	f, err := os.Create(filePath)
 	if err != nil {
 		log.Fatal("Failted to create new video")
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Print("failed to close the created video file: ", err)
+		}
+	}()
 	return filePath
 }
 
