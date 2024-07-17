@@ -1,15 +1,16 @@
 package twitch
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/m3u8"
+	"github.com/schollz/progressbar/v3"
 )
 
 func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
@@ -38,7 +39,7 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 	return data.Data.VideoPlaybackAccessToken.Value, data.Data.VideoPlaybackAccessToken.Signature, nil
 }
 
-func (c *Client) GetMasterStreamPlaylist(token, sig, id string) (string, error) {
+func (c *Client) GetMasterStreamPlaylistURL(token, sig, id string) (string, error) {
 	u := fmt.Sprintf("%s/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_audio_only=true&allow_source=true",
 		c.usherURL, id, token, sig)
 	resp, err := c.client.Get(u)
@@ -56,6 +57,18 @@ func (c *Client) GetMasterStreamPlaylist(token, sig, id string) (string, error) 
 	return string(b), nil
 }
 
+func (c *Client) GetMasterStreamPlaylist(id string) (string, error) {
+	tok, sig, err := c.GetLivestreamCreds(id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get livestream credentials: %w", err)
+	}
+	master, err := c.GetMasterStreamPlaylistURL(tok, sig, id)
+	if err != nil {
+		return "", fmt.Errorf("failed to get master stream playlist: %w", err)
+	}
+	return master, nil
+}
+
 func (c *Client) StartRecording(streamURL, quality, outpath string) error {
 	id, _, err := c.ID(streamURL)
 	if err != nil {
@@ -65,6 +78,7 @@ func (c *Client) StartRecording(streamURL, quality, outpath string) error {
 	if err != nil {
 		return err
 	}
+
 	if isLive {
 		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
 		c.recordLivestream(id, streamURL, quality, newPath)
@@ -74,63 +88,74 @@ func (c *Client) StartRecording(streamURL, quality, outpath string) error {
 	return nil
 }
 
-func (c *Client) recordLivestream(id, streamURL, quality, path string) error {
-	tok, sig, err := c.GetLivestreamCreds(id)
+func (c *Client) recordLivestream(id, streamURL, quality, outPath string) error {
+	master, err := c.GetMasterStreamPlaylist(id)
 	if err != nil {
-		return fmt.Errorf("failed to get livestream credentials: %w", err)
+		return err
 	}
-	master, err := c.GetMasterStreamPlaylist(tok, sig, id)
-	if err != nil {
-		return fmt.Errorf("failed to get master stream playlist: %w", err)
-	}
+	fmt.Println(master)
 	parsed := m3u8.Parse(master)
-	masterList, err := parsed.GetMediaPlaylist(quality)
+	fmt.Println(parsed.GetQualities())
+	masterList, err := parsed.GetMasterList(quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(outPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer f.Close()
-
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	bar := progressbar.DefaultBytes(-1, "Recording:")
+	defer bar.Close()
 
 	for {
 		select {
 		case <-ticker.C:
-			if err := c.downloadAndWriteSegment(masterList.URL, f); err != nil {
-				log.Printf("failed to download and write segment: %v", err)
+			b, err := c.Fetch(masterList.URL)
+			isAdActive := bytes.Contains(b, []byte("#EXT-X-DISCONTINUITY"))
+			if err != nil {
+				return fmt.Errorf("failed to fetch playlist: %w", err)
+			}
+			segments := strings.Split(string(b), "\n")
+			if !isAdActive {
+				// tsURL := segments[len(segments)-2]
+				tsURL := getTSSegment(segments)
+				if err := c.downloadAndWriteSegment(tsURL, outPath, bar); err != nil {
+					log.Printf("failed to download and write segment: %v", err)
+				}
 			}
 		}
 	}
 }
 
-func (c *Client) downloadAndWriteSegment(masterListURL string, f *os.File) error {
-	bytes, err := c.Fetch(masterListURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch playlist: %w", err)
-	}
-
-	mediaList, _ := strconv.Unquote(string(bytes))
-	segments := strings.Split(mediaList, "\n")
-	if len(segments) < 2 {
-		return fmt.Errorf("unexpected playlist format: %s", mediaList)
-	}
-
-	tsURL := segments[len(segments)-2]
+func (c *Client) downloadAndWriteSegment(tsURL, outPath string, bar *progressbar.ProgressBar) error {
 	resp, err := c.client.Get(tsURL)
 	if err != nil {
 		return fmt.Errorf("failed to get segment: %w", err)
 	}
 	defer resp.Body.Close()
 
-	n, err := io.Copy(f, resp.Body)
+	f, err := os.OpenFile(outPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to write ts content to file: %w", err)
 	}
-	fmt.Printf("%d bytes written to file\n", n)
 	return nil
+}
+
+func getTSSegment(segments []string) string {
+	for _, seg := range segments {
+		if strings.HasPrefix(seg, "http") && strings.HasSuffix(seg, ".ts") {
+			return seg
+		}
+	}
+	return ""
 }

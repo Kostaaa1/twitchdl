@@ -92,7 +92,7 @@ func Parse(playlist string) MasterPlaylist {
 	return master
 }
 
-func (playlist *MasterPlaylist) GetMediaPlaylist(quality string) (List, error) {
+func (playlist *MasterPlaylist) GetMasterList(quality string) (List, error) {
 	segments := playlist.Lists
 	for i := 0; i < len(segments); i++ {
 		seg := segments[i]
@@ -104,6 +104,23 @@ func (playlist *MasterPlaylist) GetMediaPlaylist(quality string) (List, error) {
 		}
 	}
 	return List{}, fmt.Errorf("could not find the provided quality for a livestream")
+
+}
+
+func (playlist *MasterPlaylist) GetQualities() []string {
+	segments := playlist.Lists
+	var qualities []string
+	for i := 0; i < len(segments); i++ {
+		seg := segments[i]
+		qualities = append(qualities, seg.Video)
+		// if quality == "best" && seg.Video == "chunked" {
+		// 	return seg, nil
+		// }
+		// if seg.Video == quality {
+		// 	return seg, nil
+		// }
+	}
+	return qualities
 }
 
 func (playlist *MasterPlaylist) GetJSONSegments() []string {

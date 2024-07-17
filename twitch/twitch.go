@@ -38,6 +38,7 @@ const (
 	TypeLivestream
 )
 
+// change the name
 func (c *Client) Name(vType VideoType, id string) (string, error) {
 	var name string
 	switch vType {
@@ -58,6 +59,7 @@ func (c *Client) Name(vType VideoType, id string) (string, error) {
 	return name, nil
 }
 
+// change the name
 func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
 	name, err := c.Name(vType, id)
 	if err != nil {
@@ -127,12 +129,7 @@ func (c *Client) Fetch(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
-	s := string(bytes)
-	marshaledBytes, err := json.MarshalIndent(s, "", " ")
-	if err != nil {
-		return nil, err
-	}
-	return marshaledBytes, nil
+	return bytes, nil
 }
 
 func (c *Client) decodeJSONResponse(resp *http.Response, p interface{}) error {
