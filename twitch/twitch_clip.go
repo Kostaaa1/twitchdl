@@ -3,11 +3,23 @@ package twitch
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/schollz/progressbar/v3"
 )
+
+type VideoQualities []struct {
+	Typename  string  `json:"__typename"`
+	FrameRate float64 `json:"frameRate"`
+	Quality   string  `json:"quality"`
+	SourceURL string  `json:"sourceURL"`
+}
 
 type ClipCredentials struct {
 	Typename            string `json:"__typename"`
@@ -17,15 +29,31 @@ type ClipCredentials struct {
 		Signature string `json:"signature"`
 		Value     string `json:"value"`
 	} `json:"playbackAccessToken"`
-	VideoQualities []struct {
-		Typename  string  `json:"__typename"`
-		FrameRate float64 `json:"frameRate"`
-		Quality   string  `json:"quality"`
-		SourceURL string  `json:"sourceURL"`
-	} `json:"videoQualities"`
+	VideoQualities VideoQualities `json:"videoQualities"`
+	// VideoQualities []struct {
+	// 	Typename  string  `json:"__typename"`
+	// 	FrameRate float64 `json:"frameRate"`
+	// 	Quality   string  `json:"quality"`
+	// 	SourceURL string  `json:"sourceURL"`
+	// } `json:"videoQualities"`
 }
 
-func (c *Client) GetClipCreds(slug string) (ClipCredentials, error) {
+func (c *Client) extractSourceURL(videoQualities VideoQualities, quality string) string {
+	if quality == "best" {
+		return videoQualities[0].SourceURL
+	}
+	if quality == "worst" {
+		return videoQualities[len(videoQualities)-1].SourceURL
+	}
+	for _, q := range videoQualities {
+		if strings.HasPrefix(q.Quality, quality) {
+			return q.SourceURL
+		}
+	}
+	return quality
+}
+
+func (c *Client) GetClipData(slug string) (ClipCredentials, error) {
 	gqlPayload := `{
         "operationName": "VideoAccessToken_Clip",
         "variables": {
@@ -44,29 +72,74 @@ func (c *Client) GetClipCreds(slug string) (ClipCredentials, error) {
 		} `json:"data"`
 	}
 	var p payload
-
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
-	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
+	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return ClipCredentials{}, err
 	}
 	return p.Data.Clip, nil
 }
 
-// separate functions - make universal function for constructing these usher urls
-func (c *Client) ClipStream(clip ClipCredentials) (io.ReadCloser, error) {
-	URL := fmt.Sprintf("%s?sig=%s&token=%s", clip.VideoQualities[0].SourceURL, url.QueryEscape(clip.PlaybackAccessToken.Signature), url.QueryEscape(clip.PlaybackAccessToken.Value))
+func (c *Client) GetClipUsherURL(sourceURL, sig, token string) string {
+	URL := fmt.Sprintf("%s?sig=%s&token=%s", sourceURL, url.QueryEscape(sig), url.QueryEscape(token))
+	return URL
+}
 
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
+func (c *Client) DownloadClip(slug, quality, destPath string) error {
+	clip, err := c.GetClipData(slug)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create the new request for stream: %s", err)
+		return err
+	}
+	sourceURL := c.extractSourceURL(clip.VideoQualities, quality)
+	usherURL := c.GetClipUsherURL(sourceURL, clip.PlaybackAccessToken.Signature, clip.PlaybackAccessToken.Value)
+
+	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stream response: %s", err)
+		log.Fatal("SKRT: ", err)
 	}
+	defer resp.Body.Close()
 
-	return resp.Body, nil
+	bar := progressbar.DefaultBytes(-1, "Recording:")
+	out, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to create the outPath. Maybe the output that is provided is incorrect: %s", err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write the stream into outPath: %s", err)
+	}
+	return nil
+}
+
+func (c *Client) BatchDownload(urls []string, quality, destPath string) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(urls))
+	for _, URL := range urls {
+		wg.Add(1)
+		go func(URL string) {
+			defer wg.Done()
+			slug, _, err := c.ID(URL)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			if err := c.DownloadClip(slug, quality, destPath); err != nil {
+				errChan <- fmt.Errorf("failed to download clip from URL: %s , Error: \n%w", URL, err)
+			}
+		}(URL)
+	}
+	wg.Wait()
+	close(errChan)
+	for err := range errChan {
+		return err
+	}
+	return nil
 }
 
 type ClipMetadata struct {
@@ -105,7 +178,6 @@ func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
             }
         }
     }`
-
 	type payload struct {
 		Data struct {
 			Clip ClipMetadata `json:"clip"`
@@ -113,7 +185,7 @@ func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
 	}
 	var p payload
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
-	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
+	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return ClipMetadata{}, err
 	}
 	return p.Data.Clip, nil

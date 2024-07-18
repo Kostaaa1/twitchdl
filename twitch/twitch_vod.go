@@ -37,7 +37,7 @@ func (c *Client) GetVideoCredentials(id string) (string, string, error) {
 	var p payload
 
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, id))
-	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
+	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return "", "", err
 	}
 	return p.Data.VideoPlaybackAccessToken.Value, p.Data.VideoPlaybackAccessToken.Signature, nil
@@ -101,7 +101,7 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	var p payload
 
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, id))
-	if err := c.sendGraphqlLoadAndDecode(body, &p); err != nil {
+	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return VideoMetadata{}, err
 	}
 	return p.Data.Video, nil

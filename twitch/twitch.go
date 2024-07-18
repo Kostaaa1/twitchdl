@@ -6,12 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"sync"
-
-	file "github.com/Kostaaa1/twitchdl/utils"
 )
 
 const (
@@ -39,7 +36,7 @@ const (
 )
 
 // change the name
-func (c *Client) Name(vType VideoType, id string) (string, error) {
+func (c *Client) MediaName(id string, vType VideoType) (string, error) {
 	var name string
 	switch vType {
 	case TypeClip:
@@ -60,31 +57,33 @@ func (c *Client) Name(vType VideoType, id string) (string, error) {
 }
 
 // change the name
-func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
-	name, err := c.Name(vType, id)
-	if err != nil {
-		return "", err
-	}
-	name = file.CreateVideo(output, name)
-	return name, nil
-}
+// func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
+// 	name, err := c.extractNameFromID(vType, id)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	return name, nil
+// }
 
 func (c *Client) ID(URL string) (string, VideoType, error) {
 	u, err := url.Parse(URL)
-	s := strings.Split(u.Path, "/")
-	if len(s) == 2 {
-		return s[1], TypeLivestream, nil
-	}
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to parse the URL: %s", err)
 	}
 	if !strings.Contains(u.Hostname(), "twitch.tv") {
 		return "", 0, fmt.Errorf("the hostname of the URL does not contain twitch.tv")
 	}
+	// handle live stream
+	s := strings.Split(u.Path, "/")
+	if len(s) == 2 {
+		return s[1], TypeLivestream, nil
+	}
+	// handle clip
 	if strings.Contains(u.Path, "/clip/") {
 		_, id := path.Split(u.Path)
 		return id, TypeClip, nil
 	}
+	// handle vod
 	if strings.Contains(u.Path, "/videos/") {
 		_, id := path.Split(u.Path)
 		return id, TypeVOD, nil
@@ -149,7 +148,7 @@ func (c *Client) readResponseBody(resp *http.Response) ([]byte, error) {
 	return b, nil
 }
 
-func (c *Client) sendGraphqlLoadAndDecode(body *strings.Reader, v any) error {
+func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request to get the access token: %s", err)
@@ -167,69 +166,18 @@ func (c *Client) sendGraphqlLoadAndDecode(body *strings.Reader, v any) error {
 	return nil
 }
 
-func (c *Client) BatchDownload(urls []string, outPath string) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(urls))
-	for _, URL := range urls {
-		wg.Add(1)
-		go func(URL string) {
-			defer wg.Done()
-			slug, _, err := c.ID(URL)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			pathname, err := c.PathName(TypeClip, slug, outPath)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			if err := c.DownloadClip(slug, pathname); err != nil {
-				errChan <- fmt.Errorf("failed to download clip from URL: %s , Error: \n%w", URL, err)
-			}
-		}(URL)
-	}
-	wg.Wait()
-	close(errChan)
-	for err := range errChan {
-		return err
-	}
-	return nil
-}
-
 func (c *Client) IsChannelLive(channelName string) (bool, error) {
 	u := fmt.Sprintf("https://decapi.me/twitch/uptime/%s", channelName)
 	resp, err := http.Get(u)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed getting the response from URL: %s. \nError: %s", u, err)
 	}
 	defer resp.Body.Close()
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed reading the response Body. \nError: %s", err)
 	}
 	return !strings.Contains(string(b), "offline"), nil
-}
-
-func (c *Client) DownloadClip(slug, filepath string) error {
-	out, err := os.Create(filepath)
-	if err != nil {
-		return fmt.Errorf("failed to create the outPath. Maybe the output that is provided is incorrect: %s", err)
-	}
-	defer out.Close()
-	creds, err := c.GetClipCreds(slug)
-	if err != nil {
-		return err
-	}
-	stream, err := c.ClipStream(creds)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(out, stream)
-	if err != nil {
-		return fmt.Errorf("failed to write the stream into outPath: %s", err)
-	}
-	return nil
 }
 
 // func (c *Client) DownloadVideo(name, id, quality string, start, end time.Duration) error {

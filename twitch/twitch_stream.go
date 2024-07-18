@@ -1,7 +1,6 @@
 package twitch
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -31,9 +30,9 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 		} `json:"data"`
 	}
 	var data payload
-	body := strings.NewReader(fmt.Sprintf(gqlPl, id))
 
-	if err := c.sendGraphqlLoadAndDecode(body, &data); err != nil {
+	body := strings.NewReader(fmt.Sprintf(gqlPl, id))
+	if err := c.sendGqlLoadAndDecode(body, &data); err != nil {
 		return "", "", err
 	}
 	return data.Data.VideoPlaybackAccessToken.Value, data.Data.VideoPlaybackAccessToken.Signature, nil
@@ -69,62 +68,70 @@ func (c *Client) GetMasterStreamPlaylist(id string) (string, error) {
 	return master, nil
 }
 
-func (c *Client) StartRecording(streamURL, quality, outpath string) error {
-	id, _, err := c.ID(streamURL)
-	if err != nil {
-		log.Fatal(err)
-	}
+func (c *Client) StartRecording(id, quality, outpath string) error {
 	isLive, err := c.IsChannelLive(id)
 	if err != nil {
 		return err
 	}
-
 	if isLive {
 		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-		c.recordLivestream(id, streamURL, quality, newPath)
+		c.recordLivestream(id, quality, newPath)
 	} else {
 		return fmt.Errorf("the channel %s is not live. In order to record the livestream, the channel needs to be live", id)
 	}
 	return nil
 }
 
-func (c *Client) recordLivestream(id, streamURL, quality, outPath string) error {
+func isAdRunning(segments []string) int {
+	for i := len(segments) - 1; i > 0; i-- {
+		if segments[i] == "#EXT-X-DISCONTINUITY" {
+			return i
+		}
+	}
+	return 0
+}
+
+func (c *Client) recordLivestream(id, quality, destPath string) error {
 	master, err := c.GetMasterStreamPlaylist(id)
 	if err != nil {
 		return err
 	}
-	fmt.Println(master)
 	parsed := m3u8.Parse(master)
-	fmt.Println(parsed.GetQualities())
 	masterList, err := parsed.GetMasterList(quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
 
-	f, err := os.Create(outPath)
+	f, err := os.Create(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer f.Close()
+
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	bar := progressbar.DefaultBytes(-1, "Recording:")
-	defer bar.Close()
+	isAdFound := false
 
 	for {
 		select {
 		case <-ticker.C:
 			b, err := c.Fetch(masterList.URL)
-			isAdActive := bytes.Contains(b, []byte("#EXT-X-DISCONTINUITY"))
 			if err != nil {
 				return fmt.Errorf("failed to fetch playlist: %w", err)
 			}
 			segments := strings.Split(string(b), "\n")
-			if !isAdActive {
-				// tsURL := segments[len(segments)-2]
-				tsURL := getTSSegment(segments)
-				if err := c.downloadAndWriteSegment(tsURL, outPath, bar); err != nil {
+			discontinuityID := isAdRunning(segments)
+			if discontinuityID == 0 {
+				isAdFound = false
+				tsURL := segments[len(segments)-2]
+				if err := c.downloadAndWriteSegment(tsURL, destPath, bar); err != nil {
 					log.Printf("failed to download and write segment: %v", err)
+				}
+			} else {
+				if !isAdFound {
+					fmt.Printf("\n[Be patient] found twitch AD at %d position, this can take a while...\n", discontinuityID)
+					isAdFound = true
 				}
 			}
 		}
@@ -149,13 +156,4 @@ func (c *Client) downloadAndWriteSegment(tsURL, outPath string, bar *progressbar
 		return fmt.Errorf("failed to write ts content to file: %w", err)
 	}
 	return nil
-}
-
-func getTSSegment(segments []string) string {
-	for _, seg := range segments {
-		if strings.HasPrefix(seg, "http") && strings.HasSuffix(seg, ".ts") {
-			return seg
-		}
-	}
-	return ""
 }
