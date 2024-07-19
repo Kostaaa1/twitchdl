@@ -2,15 +2,13 @@ package twitch
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
+	file "github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -79,66 +77,73 @@ func (c *Client) GetClipData(slug string) (ClipCredentials, error) {
 	return p.Data.Clip, nil
 }
 
-func (c *Client) GetClipUsherURL(sourceURL, sig, token string) string {
-	URL := fmt.Sprintf("%s?sig=%s&token=%s", sourceURL, url.QueryEscape(sig), url.QueryEscape(token))
-	return URL
+func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
+	clip, err := c.GetClipData(slug)
+	if err != nil {
+		return "", err
+	}
+	sourceURL := c.extractSourceURL(clip.VideoQualities, quality)
+	URL := fmt.Sprintf("%s?sig=%s&token=%s", sourceURL, url.QueryEscape(clip.PlaybackAccessToken.Signature), url.QueryEscape(clip.PlaybackAccessToken.Value))
+	return URL, nil
 }
 
-func (c *Client) DownloadClip(slug, quality, destPath string) error {
-	clip, err := c.GetClipData(slug)
+func (c *Client) DownloadClip(slug, quality, destPath string, bar *progressbar.ProgressBar) error {
+	mediaName, _ := c.MediaName(slug, 0)
+	finalDest := file.CreatePathname(destPath, mediaName)
+	usherURL, err := c.GetClipUsherURL(slug, quality)
 	if err != nil {
 		return err
 	}
-	sourceURL := c.extractSourceURL(clip.VideoQualities, quality)
-	usherURL := c.GetClipUsherURL(sourceURL, clip.PlaybackAccessToken.Signature, clip.PlaybackAccessToken.Value)
 
 	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-	resp, err := c.client.Do(req)
-	if err != nil {
-		log.Fatal("SKRT: ", err)
-	}
-	defer resp.Body.Close()
 
-	bar := progressbar.DefaultBytes(-1, "Recording:")
-	out, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create the outPath. Maybe the output that is provided is incorrect: %s", err)
-	}
-	defer out.Close()
-
-	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write the stream into outPath: %s", err)
+	if err := c.downloadSegment(req, finalDest, bar); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (c *Client) BatchDownload(urls []string, quality, destPath string) error {
+func (c *Client) BatchDownload(urls []string, quality, destPath string, bar *progressbar.ProgressBar) error {
+	maxConcurrentDownloads := 4
 	var wg sync.WaitGroup
+
 	errChan := make(chan error, len(urls))
+	sem := make(chan struct{}, maxConcurrentDownloads)
+
 	for _, URL := range urls {
 		wg.Add(1)
+
 		go func(URL string) {
 			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			slug, _, err := c.ID(URL)
 			if err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("failed to get ID for URL: %s, error: %w", URL, err)
 				return
 			}
-			if err := c.DownloadClip(slug, quality, destPath); err != nil {
-				errChan <- fmt.Errorf("failed to download clip from URL: %s , Error: \n%w", URL, err)
+			if err := c.DownloadClip(slug, quality, destPath, bar); err != nil {
+				errChan <- fmt.Errorf("failed to download clip from URL: %s, error: %w", URL, err)
 			}
 		}(URL)
 	}
+
 	wg.Wait()
 	close(errChan)
-	for err := range errChan {
-		return err
+
+	if len(errChan) > 0 {
+		for err := range errChan {
+			fmt.Println(err)
+		}
+		return fmt.Errorf("some downloads failed")
 	}
+
 	return nil
 }
 

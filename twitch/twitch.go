@@ -6,9 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 const (
@@ -131,21 +134,21 @@ func (c *Client) Fetch(url string) ([]byte, error) {
 	return bytes, nil
 }
 
+func (c *Client) NewGetRequest(URL string) (*http.Request, error) {
+	req, err := http.NewRequest(http.MethodGet, URL, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer req.Body.Close()
+	return req, nil
+}
+
 func (c *Client) decodeJSONResponse(resp *http.Response, p interface{}) error {
 	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (c *Client) readResponseBody(resp *http.Response) ([]byte, error) {
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
 }
 
 func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
@@ -178,6 +181,30 @@ func (c *Client) IsChannelLive(channelName string) (bool, error) {
 		return false, fmt.Errorf("failed reading the response Body. \nError: %s", err)
 	}
 	return !strings.Contains(string(b), "offline"), nil
+}
+
+func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progressbar.ProgressBar) error {
+	f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to get the response from: %s", req.URL)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received non-OK response status: %s", resp.Status)
+	}
+
+	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // func (c *Client) DownloadVideo(name, id, quality string, start, end time.Duration) error {

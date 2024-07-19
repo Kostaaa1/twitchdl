@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -68,16 +69,16 @@ func (c *Client) GetMasterStreamPlaylist(id string) (string, error) {
 	return master, nil
 }
 
-func (c *Client) StartRecording(id, quality, outpath string) error {
+func (c *Client) StartRecording(id, quality, outpath string, bar *progressbar.ProgressBar) error {
 	isLive, err := c.IsChannelLive(id)
 	if err != nil {
 		return err
 	}
 	if isLive {
 		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-		c.recordLivestream(id, quality, newPath)
+		c.recordLivestream(id, quality, newPath, bar)
 	} else {
-		return fmt.Errorf("the channel %s is not live. In order to record the livestream, the channel needs to be live", id)
+		return fmt.Errorf("the channel %s is currently offline", id)
 	}
 	return nil
 }
@@ -91,7 +92,7 @@ func isAdRunning(segments []string) int {
 	return 0
 }
 
-func (c *Client) recordLivestream(id, quality, destPath string) error {
+func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar.ProgressBar) error {
 	master, err := c.GetMasterStreamPlaylist(id)
 	if err != nil {
 		return err
@@ -107,12 +108,10 @@ func (c *Client) recordLivestream(id, quality, destPath string) error {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer f.Close()
-
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	bar := progressbar.DefaultBytes(-1, "Recording:")
-	isAdFound := false
 
+	isAdFound := false
 	for {
 		select {
 		case <-ticker.C:
@@ -125,7 +124,13 @@ func (c *Client) recordLivestream(id, quality, destPath string) error {
 			if discontinuityID == 0 {
 				isAdFound = false
 				tsURL := segments[len(segments)-2]
-				if err := c.downloadAndWriteSegment(tsURL, destPath, bar); err != nil {
+
+				req, err := http.NewRequest(http.MethodGet, tsURL, nil)
+				if err != nil {
+					log.Println("failed to initiate the request")
+				}
+
+				if err := c.downloadSegment(req, destPath, bar); err != nil {
 					log.Printf("failed to download and write segment: %v", err)
 				}
 			} else {
@@ -136,24 +141,4 @@ func (c *Client) recordLivestream(id, quality, destPath string) error {
 			}
 		}
 	}
-}
-
-func (c *Client) downloadAndWriteSegment(tsURL, outPath string, bar *progressbar.ProgressBar) error {
-	resp, err := c.client.Get(tsURL)
-	if err != nil {
-		return fmt.Errorf("failed to get segment: %w", err)
-	}
-	defer resp.Body.Close()
-
-	f, err := os.OpenFile(outPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write ts content to file: %w", err)
-	}
-	return nil
 }

@@ -29,40 +29,13 @@ func getFullURL(u string) string {
 	return fullURL.String()
 }
 
-// func CreateVideo(dir, filename string) string {
-// 	re := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-// 	filename = re.ReplaceAllString(filename, "_")
-// 	filePath := filepath.Join(dir, fmt.Sprintf("%s.mp4", filename))
-// 	counter := 1
-// 	for isFileReal(filePath) {
-// 		filePath = filepath.Join(dir, fmt.Sprintf("%s (%v).mp4", filename, counter))
-// 		counter++
-// 	}
-// 	f, err := os.Create(filePath)
-// 	if err != nil {
-// 		log.Fatal("Failted to create new video")
-// 	}
-// 	defer func() {
-// 		if err := f.Close(); err != nil {
-// 			log.Print("failed to close the created video file: ", err)
-// 		}
-// 	}()
-// 	return filePath
-// }
-
-func AppendToFile(filePath string, data []byte) error {
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open the files: %w", err)
-	}
-	_, err = file.Write(data)
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
-}
-
 func ConstructURL(urls []string, quality string) string {
+	if quality == "best" {
+		return getFullURL(urls[0])
+	}
+	if quality == "worst" {
+		return getFullURL(urls[len(urls)-1])
+	}
 	var u string
 	if quality != "" {
 		for _, x := range urls {
