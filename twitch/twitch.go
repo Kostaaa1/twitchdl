@@ -199,29 +199,9 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-OK response status: %s", resp.Status)
 	}
-
 	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-
-// func (c *Client) DownloadVideo(name, id, quality string, start, end time.Duration) error {
-// 	token, sig, err := c.GetVideoCredentials(id)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	m3u8, err := c.GetVODMasterM3u8(token, sig, id)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	serialized := string(m3u8)
-// 	fmt.Println("SErialized", serialized)
-// 	urls := c.GetMediaPlaylists(serialized)
-// 	u := file.ConstructURL(urls, quality)
-// 	if err := c.DownloadVOD(u, name, start, end); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }

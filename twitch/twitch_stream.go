@@ -112,6 +112,7 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 	defer ticker.Stop()
 
 	isAdFound := false
+
 	for {
 		select {
 		case <-ticker.C:
@@ -123,8 +124,8 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 			discontinuityID := isAdRunning(segments)
 			if discontinuityID == 0 {
 				isAdFound = false
-				tsURL := segments[len(segments)-2]
 
+				tsURL := segments[len(segments)-2]
 				req, err := http.NewRequest(http.MethodGet, tsURL, nil)
 				if err != nil {
 					log.Println("failed to initiate the request")
