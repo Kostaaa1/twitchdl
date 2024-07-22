@@ -37,7 +37,7 @@ func FindQuality(qualities []string, quality string) string {
 	return quality
 }
 
-func IsValidQuality(q string) bool {
+func IsQualityValid(q string) bool {
 	for _, quality := range supportedQualities {
 		if strings.HasPrefix(q, quality) || strings.HasPrefix(quality, q) {
 			return true
