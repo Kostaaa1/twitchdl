@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"flag"
@@ -97,7 +97,6 @@ func (cfg *Config) run() error {
 	// mediaName, _ := api.MediaName(id, vType)
 	// finalDest := file.CreatePathname(output, mediaName)
 	bar := progressbar.DefaultBytes(-1, "Downloading:")
-
 	batch := strings.Split(cfg.inputURL, ",")
 	if len(batch) > 1 {
 		if err := api.BatchDownload(batch, cfg.quality, output, bar); err != nil {

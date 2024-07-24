@@ -11,16 +11,23 @@ var (
 
 func main() {
 	chat.Start()
-	// msgChan := make(chan chat.UserMessage, 100)
+
+	// msgChan := make(chan interface{}, 100)
 	// ws, err := chat.CreateWSClient()
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// go func() {
-	// 	ws.Connect(accessToken, name, "hasanabi", msgChan)
-	// }()
-	// for msg := range msgChan {
-	// 	fmt.Println(msg)
+	// ws.Connect(accessToken, name, "nmplol", msgChan)
+	// for {
+	// 	select {
+	// 	case m := <-msgChan:
+	// 		fmt.Println(m)
+	// 	}
 	// }
+	// m := "@emote-only=0;followers-only=0;r9k=0;room-id=21841789;slow=0;subs-only=0 :tmi.twitch.tv ROOMSTATE #nmplol"
+	// pattern := `\b(PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
+	// re := regexp.MustCompile(pattern)
+	// k := re.FindStringSubmatch(m)
+	// fmt.Println(k)
 
 }

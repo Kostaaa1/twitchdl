@@ -3,35 +3,32 @@ package chat
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type UpdateMsg struct {
-	Data UserMessage
+type NewChannelMessage struct {
+	Data interface{}
 }
 
 type ChatModel struct {
-	input    string
-	msgChan  chan UserMessage
-	textarea textarea.Model
-	viewport viewport.Model
-	width    int
-	height   int
-	messages []string
+	ws        *WebSocketClient
+	msgChan   chan interface{}
+	roomState types.RoomState
+	textinput textinput.Model
+	viewport  viewport.Model
+	width     int
+	height    int
+	messages  []string
 }
 
-// type model struct {
-// 	messages []string
-// 	textarea textarea.Model
-// 	viewport viewport.Model
-// 	msgChan  chan UserMessage
-// 	err      error
-// }
+var twitchChan = "zackrawrr"
 
 func Start() {
 	if _, err := tea.NewProgram(initModel(), tea.WithAltScreen()).Run(); err != nil {
@@ -42,41 +39,39 @@ func Start() {
 func initModel() tea.Model {
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
-	msgChan := make(chan UserMessage, 20)
 
+	msgChan := make(chan interface{})
 	ws, err := CreateWSClient()
 	if err != nil {
 		panic(err)
 	}
-	go ws.Connect("x1ug4nduxyhopsdc1zrwbi1c3f5m0f", "slorpglorpski", "hasanabi", msgChan)
+	go ws.Connect("x1ug4nduxyhopsdc1zrwbi1c3f5m0f", "slorpglorpski", twitchChan, msgChan)
 
-	ta := textarea.New()
+	ta := textinput.New()
 	ta.CharLimit = 500
 	ta.Placeholder = "Send a message"
-	ta.Prompt = "    ▶ "
-	ta.ShowLineNumbers = false
-	ta.KeyMap.InsertNewline.SetEnabled(false)
+	ta.Prompt = "▶ "
 	ta.Focus()
 
 	return ChatModel{
-		input:    "",
-		textarea: ta,
-		viewport: vp,
-		msgChan:  msgChan,
-		width:    0,
-		height:   0,
-		messages: []string{},
+		ws:        ws,
+		roomState: types.RoomState{},
+		textinput: ta,
+		viewport:  vp,
+		msgChan:   msgChan,
+		width:     0,
+		height:    0,
+		messages:  []string{},
 	}
-
 }
 
 func (m ChatModel) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink, m.waitForMsg())
+	return m.waitForMsg()
 }
 
 func (m ChatModel) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
-		return UpdateMsg{Data: <-m.msgChan}
+		return NewChannelMessage{Data: <-m.msgChan}
 	}
 }
 
@@ -85,18 +80,24 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
 	)
-	m.textarea, tiCmd = m.textarea.Update(msg)
+	m.textinput, tiCmd = m.textinput.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// v, h := docStyle.GetFrameSize()
-		m.textarea.SetWidth(msg.Width - 4)
-		m.textarea.SetHeight(1)
+		w := msg.Width - 2
+		h := msg.Height - 7
 
-		m.viewport.Width = msg.Width - 4
-		m.viewport.Height = msg.Height - 7
-		m.viewport, vpCmd = m.viewport.Update(msg)
-		m.viewport.Style = lipgloss.NewStyle().Padding(0, 1).MarginBottom(1).MarginLeft(3).BorderStyle(lipgloss.ThickBorder()).BorderForeground(lipgloss.Color("61"))
+		m.viewport.Width = w
+		m.viewport.Height = h
+		m.width = w
+		m.height = h
+		m.viewport.Style = lipgloss.NewStyle().
+			Width(m.viewport.Width).
+			Height(m.viewport.Height).
+			Padding(0, 1, 0, 1).
+			MarginBottom(1).
+			BorderStyle(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("63"))
 
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -104,51 +105,83 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			// send message.
-			if m.textarea.Value() == "" {
+			if m.textinput.Value() == "" {
 				return m, nil
 			}
-
-			newMsg := struct {
-				Color lipgloss.Style
-				Text  string
-				Name  string
-			}{
-				Color: lipgloss.NewStyle().Foreground(lipgloss.Color("#FFF200")),
-				Text:  m.textarea.Value(),
-				Name:  "Kosta",
+			newMsg := types.UserIRC{
+				DisplayName:    "Kosta",
+				Badges:         []string{},
+				Color:          "#FFF200",
+				IsFirstMessage: false,
+				IsMod:          false,
+				IsSubscriber:   false,
+				Type:           "",
+				ID:             "93289321",
+				Message:        m.textinput.Value(),
+				Timestamp:      GetCurrentTimeFormatted(),
 			}
-
-			msgLine := fmt.Sprintf("%s: %s", newMsg.Color.Render(newMsg.Name), m.textarea.Value())
-			m.messages = append(m.messages, msgLine)
+			m.ws.FormatIRCMsgAndSend("PRIVMSG", twitchChan, m.textinput.Value())
+			m.messages = append(m.messages, formatMsg(newMsg, m.width))
 			m.viewport.SetContent(strings.Join(m.messages, "\n"))
-			m.textarea.Reset()
+			m.textinput.Reset()
 			m.viewport.GotoBottom()
 
 		case tea.KeyUp, tea.KeyDown:
 			m.viewport, vpCmd = m.viewport.Update(msg)
 		}
 
-	case UpdateMsg:
-		if len(m.messages) == 100 {
-			m.messages = m.messages[50:]
+	case NewChannelMessage:
+		// fmt.Println(msg.Data)
+		switch chanMsg := msg.Data.(type) {
+		case types.RoomState:
+			m.roomState = chanMsg
+			return m, m.waitForMsg()
+		case types.UserIRC:
+			if len(m.messages) == 100 {
+				m.messages = m.messages[1:]
+			}
+			m.messages = append(m.messages, formatMsg(chanMsg, m.width-10))
+			m.viewport.SetContent(strings.Join(m.messages, "\n"))
+			m.viewport.GotoBottom()
+			return m, m.waitForMsg()
 		}
-
-		msgLine := fmt.Sprintf("%s: %s", lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Data.Color)).Render(msg.Data.DisplayName), msg.Data.Message)
-		m.messages = append(m.messages, msgLine)
-		m.viewport.SetContent(strings.Join(m.messages, "\n"))
-		m.viewport.GotoBottom()
-
-		return m, m.waitForMsg()
 	}
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
+func formatMsg(msg types.UserIRC, width int) string {
+	trimmedMsg := strings.TrimSpace(msg.Message)
+	if msg.Color == "" {
+		msg.Color = getRandHex()
+	}
+	return fmt.Sprintf("[%s] %s: %s", msg.Timestamp, lipgloss.NewStyle().Foreground(lipgloss.Color(msg.Color)).Render(msg.DisplayName), trimmedMsg)
+}
+
 func (m ChatModel) View() string {
-	// return m.viewport.View()
 	return fmt.Sprintf(
 		"%s\n%s",
 		m.viewport.View(),
-		m.textarea.View(),
+		m.textinput.View(),
 	)
+}
+
+func getRandHex() string {
+	getHex := func(rgb int) string {
+		hex := fmt.Sprintf("%x", rgb)
+		if len(hex) == 1 {
+			hex = "0" + hex
+		}
+		return hex
+	}
+	rgb := struct {
+		Red   int
+		Green int
+		Blue  int
+	}{
+		Red:   rand.Intn(500),
+		Green: rand.Intn(500),
+		Blue:  rand.Intn(500),
+	}
+	hex := fmt.Sprintf("#%s%s%s", getHex(rgb.Red), getHex(rgb.Green), getHex(rgb.Blue))
+	return hex
 }
