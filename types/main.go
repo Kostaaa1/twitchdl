@@ -1,33 +1,74 @@
 package types
 
-type UserIRC struct {
+type Metadata struct {
+	Color        string
+	DisplayName  string
+	IsMod        bool
+	IsSubscriber bool
+	UserType     string
+}
+
+type ChatMessageMetadata struct {
+	Metadata
+	RoomID    string
+	Timestamp string
+	UserType  string
+}
+
+type ChatMessage struct {
+	Metadata       ChatMessageMetadata
 	Message        string
-	Badges         []string
-	Color          string
-	DisplayName    string
 	IsFirstMessage bool
-	IsMod          bool
-	IsSubscriber   bool
-	ID             string
-	Timestamp      string
-	Type           string
+}
+
+type RoomStateMetadata struct {
+	Metadata
 }
 
 type RoomState struct {
-	Color           string
-	DisplayName     string
-	IsMod           bool
-	IsSubscriber    bool
-	UserType        string
+	Metadata        RoomStateMetadata
+	RoomID          string
 	IsEmoteOnly     bool
 	IsFollowersOnly bool
-	RoomID          string
 	IsSubsOnly      bool
 }
 
-// msg-param-cumulative-months
-// msg-param-goal-current-contributions=24577
-// type UserNoticeMsg struct {
-// 	UserIRC
-// 	MsgID string
+type NoticeMetadata struct {
+	Metadata
+	MsgID     string
+	RoomID    string
+	SystemMsg string
+	Timestamp string
+	UserID    string
+}
+
+type RaidNotice struct {
+	Metadata         NoticeMetadata
+	ParamDisplayName string
+	ParamLogin       string
+	ViewerCount      int
+}
+
+type SubGiftNotice struct {
+	Metadata             NoticeMetadata
+	Months               int
+	RecipientDisplayName string
+	RecipientID          string
+	RecipientName        string
+	SubPlan              string
+}
+
+// type SubNotice struct {
+// 	Metadata         NoticeMetadata
+// 	CumulativeMonths int
+// 	Months           int
+// 	SubPlan          string
 // }
+
+type ResubNotice struct {
+	Metadata         NoticeMetadata
+	CumulativeMonths int
+	Months           int
+	SubPlan          string
+	WasGifted        bool
+}

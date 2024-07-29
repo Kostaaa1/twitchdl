@@ -1,0 +1,224 @@
+package chat
+
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/Kostaaa1/twitchdl/utils"
+)
+
+func parseROOMSTATE(rawMsg string) types.RoomState {
+	var parts []string
+	metadata := strings.Split(rawMsg, "@")
+	var roomState = types.RoomState{
+		Metadata: types.RoomStateMetadata{},
+	}
+	if len(metadata) < 3 {
+		return roomState
+	}
+	userMD := strings.Split(metadata[1], " :")[0]
+	roomMD := strings.Split(metadata[2], " :")[0]
+	parts = append(parts, strings.Split(userMD, ";")...)
+	parts = append(parts, strings.Split(roomMD, ";")...)
+	parseMetadata(&roomState.Metadata, parts)
+
+	for _, part := range parts {
+		kv := strings.Split(part, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch key {
+			case "room-id":
+				roomState.RoomID = value
+			case "emote-only":
+				roomState.IsEmoteOnly = value == "1"
+			case "followers-only":
+				roomState.IsFollowersOnly = value == "-1"
+			case "subs-only":
+				roomState.IsSubsOnly = value == "1"
+			}
+		}
+	}
+	return roomState
+}
+
+func parsePRIVMSG(msg string) types.ChatMessage {
+	emojiRx := regexp.MustCompile(`[^\p{L}\p{N}\p{Zs}:/?&=.-@]+`)
+	parts := strings.SplitN(msg, " :", 2)
+	extracted := strings.TrimSpace(strings.Split(parts[1], " :")[1])
+	message := types.ChatMessage{
+		Message:  emojiRx.ReplaceAllString(extracted, ""),
+		Metadata: types.ChatMessageMetadata{},
+	}
+
+	mdParts := strings.Split(parts[0], ";")
+	unusedPairs := parseMetadata(&message.Metadata, mdParts)
+	for _, pair := range unusedPairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch key {
+			case "first-msg":
+				message.IsFirstMessage = value == "1"
+			}
+		}
+	}
+	return message
+}
+
+func parseSubGiftMessage(pairs []string, notice *types.SubGiftNotice) {
+	for _, pair := range pairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch key {
+			case "msg-param-months":
+				n, _ := strconv.Atoi(value)
+				notice.Months = n
+			case "msg-param-recipient-display-name":
+				notice.RecipientDisplayName = value
+			case "msg-param-recipient-id":
+				notice.RecipientID = value
+			case "msg-param-recipient-name":
+				notice.RecipientName = value
+			case "msg-param-sub-plan":
+				notice.SubPlan = value
+			}
+		}
+	}
+}
+
+func parseRaidNotice(pairs []string, raidNotice *types.RaidNotice) {
+	for _, pair := range pairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch key {
+			case "msg-param-viewerCount":
+				n, _ := strconv.Atoi(value)
+				raidNotice.ViewerCount = n
+			}
+		}
+	}
+}
+
+func parseResubNotice(pairs []string, resubNotice *types.ResubNotice) {
+	var notice types.ResubNotice
+	for _, pair := range pairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch key {
+			case "msg-param-cumulative-months":
+				n, _ := strconv.Atoi(value)
+				notice.CumulativeMonths = n
+			case "msg-param-months":
+				n, _ := strconv.Atoi(value)
+				notice.Months = n
+			case "msg-param-sub-plan":
+				notice.SubPlan = value
+			case "msg-param-was-gifted":
+				notice.WasGifted = value == "true"
+			}
+		}
+	}
+}
+
+func parseMetadata(metadata interface{}, pairs []string) []string {
+	var notUsedValues []string
+	parseBaseMetadata := func(m *types.Metadata, key, value, pair string) {
+		switch key {
+		case "color":
+			m.Color = value
+		case "display-name":
+			m.DisplayName = value
+		case "mod":
+			m.IsMod = value == "1"
+		case "subscriber":
+			m.IsSubscriber = value == "1"
+		case "user-type":
+			m.UserType = value
+		default:
+			if value != "" {
+				notUsedValues = append(notUsedValues, pair)
+			}
+		}
+	}
+	for _, pair := range pairs {
+		kv := strings.Split(pair, "=")
+		if len(kv) > 1 {
+			key := kv[0]
+			value := kv[1]
+			switch m := metadata.(type) {
+			case *types.RoomStateMetadata:
+				parseBaseMetadata(&m.Metadata, key, value, pair)
+			case *types.NoticeMetadata:
+				parseBaseMetadata(&m.Metadata, key, value, pair)
+				switch key {
+				case "msg-id":
+					m.MsgID = value
+				case "room-id":
+					m.RoomID = value
+				case "system-msg":
+					m.SystemMsg = value
+				case "tmi-sent-ts":
+					m.Timestamp = utils.ParseTimestamp(value)
+				case "user-id":
+					m.UserID = value
+				}
+			case *types.ChatMessageMetadata:
+				parseBaseMetadata(&m.Metadata, key, value, pair)
+				switch key {
+				case "room-id":
+					m.RoomID = value
+				case "tmi-sent-ts":
+					m.Timestamp = utils.ParseTimestamp(value)
+				}
+			}
+		}
+	}
+	return notUsedValues
+}
+
+func ParseUSERNOTICE(rawMsg string, msgChan chan interface{}) {
+	parts := strings.SplitN(rawMsg[1:], " :", 2)
+	pairs := strings.Split(parts[0], ";")
+	var metadata types.NoticeMetadata
+	notUsedPairs := parseMetadata(&metadata, pairs)
+
+	switch metadata.MsgID {
+	case "sub":
+		var resubNotice = types.ResubNotice{
+			Metadata: metadata,
+		}
+		parseResubNotice(notUsedPairs, &resubNotice)
+		msgChan <- resubNotice
+	case "resub":
+		var resubNotice = types.ResubNotice{
+			Metadata: metadata,
+		}
+		parseResubNotice(notUsedPairs, &resubNotice)
+		msgChan <- resubNotice
+	case "raid":
+		var raidNotice = types.RaidNotice{
+			Metadata: metadata,
+		}
+		parseRaidNotice(notUsedPairs, &raidNotice)
+		fmt.Println("RAID NOTICE", raidNotice)
+		msgChan <- raidNotice
+	case "subgift":
+		var notice = types.SubGiftNotice{
+			Metadata: metadata,
+		}
+		parseSubGiftMessage(notUsedPairs, &notice)
+		fmt.Println("SUBGIF NOTICE", notice)
+		msgChan <- notice
+	}
+}

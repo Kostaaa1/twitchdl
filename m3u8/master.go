@@ -61,7 +61,6 @@ func extractSegmentInfo(mediaParts []string, seg *List) {
 		if err != nil {
 			value = kv[1]
 		}
-
 		for structId := 0; structId < structType.NumField()-1; structId++ {
 			field := structType.Field(structId)
 			tag := field.Tag.Get("json")
