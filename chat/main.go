@@ -17,17 +17,17 @@ type NewChannelMessage struct {
 	Data interface{}
 }
 
-type ChatModel struct {
+type Model struct {
 	ws        *WebSocketClient
-	msgChan   chan interface{}
-	roomState types.RoomState
-	textinput textinput.Model
 	viewport  viewport.Model
 	width     int
 	height    int
+	msgChan   chan interface{}
+	textinput textinput.Model
 	messages  []string
 	labelBox  utils.BoxWithLabel
 	channel   string
+	roomState types.RoomState
 }
 
 func Start() {
@@ -37,7 +37,7 @@ func Start() {
 }
 
 func initModel() tea.Model {
-	channel := "zackrawrr"
+	channel := "loud_coringa"
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
 
@@ -55,32 +55,32 @@ func initModel() tea.Model {
 	t.Focus()
 	labelBox := utils.NewBoxWithLabel("#8839ef")
 
-	return ChatModel{
+	return Model{
 		ws:        ws,
-		roomState: types.RoomState{},
-		textinput: t,
 		viewport:  vp,
-		msgChan:   msgChan,
 		width:     0,
 		height:    0,
+		msgChan:   msgChan,
+		textinput: t,
+		roomState: types.RoomState{},
 		labelBox:  labelBox,
 		messages:  []string{},
 		channel:   channel,
 	}
 }
 
-func (m ChatModel) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return m.waitForMsg()
 }
 
-func (m ChatModel) waitForMsg() tea.Cmd {
+func (m Model) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
 		newMsg := <-m.msgChan
 		return NewChannelMessage{Data: newMsg}
 	}
 }
 
-func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
@@ -91,13 +91,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		w := msg.Width - 2
 		h := msg.Height - 7
-
 		m.labelBox.SetWidth(w)
 		m.viewport.Width = w
 		m.viewport.Height = h
 		m.width = w
 		m.height = h
-
 		m.viewport.Style = lipgloss.NewStyle().
 			Width(m.viewport.Width).
 			Height(m.viewport.Height)
@@ -106,7 +104,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return m, tea.Quit
-
 		case tea.KeyEnter:
 			if m.textinput.Value() == "" {
 				return m, nil
@@ -124,7 +121,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(strings.Join(m.messages, "\n"))
 			m.textinput.Reset()
 			m.viewport.GotoBottom()
-
 		case tea.KeyUp, tea.KeyDown:
 			m.viewport, vpCmd = m.viewport.Update(msg)
 		}
@@ -135,7 +131,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.roomState = chanMsg
 			m.messages = append(m.messages, lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", m.channel)))
 			return m, m.waitForMsg()
-
 		case types.ChatMessage:
 			if len(m.messages) == 100 {
 				m.messages = m.messages[1:]
@@ -144,12 +139,17 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(strings.Join(m.messages, "\n"))
 			m.viewport.GotoBottom()
 			return m, m.waitForMsg()
+		case types.SubNotice:
+			m.messages = append(m.messages, utils.FormatSubMessage(chanMsg, m.width))
+			m.viewport.SetContent(strings.Join(m.messages, "\n"))
+			m.viewport.GotoBottom()
+			return m, m.waitForMsg()
 		}
 	}
 	return m, tea.Batch(tiCmd, vpCmd)
 }
 
-func (m ChatModel) renderRoomState() string {
+func (m Model) renderRoomState() string {
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("#888892"))
 	switch {
 	case m.roomState.IsEmoteOnly:
@@ -163,7 +163,7 @@ func (m ChatModel) renderRoomState() string {
 	}
 }
 
-func (m ChatModel) View() string {
+func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.labelBox.
 		SetWidth(m.viewport.Width).

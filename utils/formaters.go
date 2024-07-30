@@ -24,6 +24,9 @@ type BoxWithLabel struct {
 }
 
 func NewBoxWithLabel(color string) BoxWithLabel {
+	if color == "" {
+		color = "#FFF"
+	}
 	return BoxWithLabel{
 		BoxStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -31,7 +34,8 @@ func NewBoxWithLabel(color string) BoxWithLabel {
 			Padding(0),
 		LabelStyle: lipgloss.
 			NewStyle().
-			Padding(0),
+			Padding(0).
+			Foreground(lipgloss.Color(color)),
 		color: color,
 	}
 }
@@ -95,7 +99,7 @@ func (b *BoxWithLabel) RenderBoxWithTabs(label, content string) string {
 	return top + "\n" + bottom + "\n"
 }
 
-func (b *BoxWithLabel) Render(label, content string) string {
+func (b *BoxWithLabel) RenderBox(label, content string) string {
 	var (
 		topBorderStyler func(strs ...string) string = lipgloss.NewStyle().
 				Foreground(b.BoxStyle.GetBorderTopForeground()).
@@ -115,9 +119,14 @@ func (b *BoxWithLabel) Render(label, content string) string {
 		width = b.width
 	}
 	borderWidth := b.BoxStyle.GetHorizontalBorderSize()
-	cellsShort := max(0, width+borderWidth-lipgloss.Width(topLeft+topRight+renderedLabel)-1)
+	cellsShort := max(0, width+borderWidth-lipgloss.Width(topLeft+topRight+renderedLabel))
 	gap := strings.Repeat(border.Top, cellsShort)
-	top := topBorderStyler(border.TopLeft) + topBorderStyler(border.Top) + renderedLabel + topBorderStyler(gap) + topRight
+	top := topBorderStyler(border.TopLeft) + renderedLabel + topBorderStyler(gap) + topRight
+
+	if width < lipgloss.Width(top) {
+		content = content + strings.Repeat(" ", lipgloss.Width(top)-width-2)
+		width = lipgloss.Width(top) - 2
+	}
 
 	bottom := b.BoxStyle.
 		BorderTop(false).
@@ -130,15 +139,14 @@ func usernameColorizer(color string) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 }
 
-var (
-	showBadges            bool
-	showTimestamps        bool
-	highlightSubs         bool
-	highlightRaids        bool
-	firstTimeChatterColor string
-	watchedUsers          map[string]any
-)
-
+// var (
+// 	showBadges            bool
+// 	showTimestamps        bool
+// 	highlightSubs         bool
+// 	highlightRaids        bool
+// 	firstTimeChatterColor string
+// 	watchedUsers          map[string]any
+// )
 // SetFormatterConfigValues sets the formatter customization options from the config.
 // This is required because Viper won't have loaded the config yet when it reads this file.
 // func SetFormatterConfigValues() {
@@ -150,8 +158,6 @@ var (
 // 	firstTimeChatterColor = viper.GetString(FirstTimeChatterColorKey)
 // }
 
-// GenerateIcon returns a colored user-type icon, if applicable to the user.
-// For example, a green sword icon for a moderator.
 func GenerateIcon(userType string) string {
 	switch userType {
 	case "broadcaster":
@@ -166,62 +172,53 @@ func GenerateIcon(userType string) string {
 	return ""
 }
 
+func formatMessageTimestamp(timestamp string, msg string) string {
+	msgHeight := lipgloss.Height(msg)
+	var newT string = timestamp
+	for i := 1; i < msgHeight; i++ {
+		newT += "\n" + strings.Repeat(" ", lipgloss.Width(timestamp))
+	}
+	return lipgloss.JoinHorizontal(1, newT, msg)
+}
+
 func FormatChatMessage(message types.ChatMessage, width int) string {
-	// This is used:
-	////////////////////////
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
 		message.Metadata.Color = GetRandHex()
 	}
-	timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s] ", message.Metadata.Timestamp))
 	msg := fmt.Sprintf(
-		"%s%s%s: %s",
-		timestamp,
+		"%s%s: %s",
 		icon,
 		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Message,
 	)
 
-	////////////////////////
-	// msg = wordwrap.String(msg, width)
-	// return msg
-	// commented for dev:
-	// msg = wordwrap.String(msg, width)
-	////////////////////////
-
+	msg = wordwrap.String(msg, width-14)
 	if !message.IsFirstMessage {
-		return msg
+		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s] ", message.Metadata.Timestamp))
+		return formatMessageTimestamp(timestamp, msg)
+	} else {
+		box := NewBoxWithLabel(firstMsgColor)
+		return box.RenderBox(" First message ", msg)
 	}
-	box := NewBoxWithLabel(firstMsgColor)
-	if message.IsFirstMessage {
-		msg = wordwrap.String(msg, width-20)
-		return box.Render(" First message ", msg)
-	}
-	return msg
-	////////////////////////
-	return ""
 }
 
-// func FormatSubMessage(message types.SubMessage, width int) string {
-// 	var fullMessage string
-// 	if message.Message != "" {
-// 		fullMessage = ": " + message.Message
-// 	} else {
-// 		fullMessage = "!"
-// 	}
-// 	box := NewBoxWithLabel(subColor)
-// 	msg := fmt.Sprintf(
-// 		"%s subscribed for %s months%s",
-// 		usernameColorizer(message.Color).Render(message.DisplayName),
-// 		message.Months,
-// 		fullMessage,
-// 	)
-// 	msg = wordwrap.String(msg, width)
-// 	if highlightSubs {
-// 		return box.Render("Sub", msg)
-// 	}
-// 	return msg + "\n"
-// }
+func FormatSubMessage(message types.SubNotice, width int) string {
+	icon := GenerateIcon(message.Metadata.UserType)
+	if message.Metadata.Color == "" {
+		message.Metadata.Color = GetRandHex()
+	}
+	msg := fmt.Sprintf(
+		"%s%s: ✯ %s",
+		icon,
+		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
+		message.Metadata.SystemMsg,
+	)
+	box := NewBoxWithLabel(subColor)
+	msg = wordwrap.String(msg, width-20)
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color(subColor)).Render(fmt.Sprintf(" %s ", Capitalize(message.SubPlan)))
+	return box.RenderBox(label, msg)
+}
 
 // func FormatAnnouncementMessage(message types.AnnouncementMessage, width int) string {
 // 	box := NewBoxWithLabel(announcementColor)

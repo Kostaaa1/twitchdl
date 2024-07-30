@@ -1,10 +1,6 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/Kostaaa1/twitchdl/chat"
-)
+import "github.com/Kostaaa1/twitchdl/chat"
 
 var (
 	name        = "slorpglorpski"
@@ -28,16 +24,28 @@ const (
 )
 
 func main() {
-	// chat.Start()
-	fmt.Println(prime)
-	msgChan := make(chan interface{}, 100)
-	chat.ParseUSERNOTICE(prime, msgChan)
+	chat.Start()
 
+	// timestamp := lipgloss.NewStyle().Faint(true).Render("[03:14]")
+	// un := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ACD32")).Render("Kosta")
+	// msg := `To Reproduce Steps to reproduce the behavior:	Simply get the resize width and height, make sure it updated, center a string the most basic and classic way return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, fmt.Sprintf("%v-%v", m.width, m.height)). If it works on Linux and MacOs, perfect, now try on W10 on the Command Prompt. You should see the string going up.`
+	// msg = wordwrap.String(msg, 60)
+	// msgHeight := lipgloss.Height(msg)
+	// var newT string = timestamp
+	// for i := 1; i < msgHeight; i++ {
+	// 	newT += "\n" + strings.Repeat(" ", lipgloss.Width(timestamp))
+	// }
+	// fmt.Println(lipgloss.JoinHorizontal(1, newT, " ", msg))
+	//////////////////////////////////////////
+
+	// fmt.Println(prime)
+	// msgChan := make(chan interface{}, 100)
+	// chat.ParseUSERNOTICE(prime, msgChan)
 	// ws, err := chat.CreateWSClient()
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// go ws.Connect(accessToken, name, "piratesoftware", msgChan)
+	// go ws.Connect(accessToken, name, "jasontheween", msgChan)
 	// for {
 	// 	select {
 	// 	case m := <-msgChan:

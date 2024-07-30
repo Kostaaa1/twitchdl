@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -70,6 +69,19 @@ func parsePRIVMSG(msg string) types.ChatMessage {
 	return message
 }
 
+func parseSubPlan(plan string) string {
+	if plan == "1000" {
+		return "Tier 1"
+	}
+	if plan == "2000" {
+		return "Tier 2"
+	}
+	if plan == "3000" {
+		return "Tier 3"
+	}
+	return "Prime"
+}
+
 func parseSubGiftMessage(pairs []string, notice *types.SubGiftNotice) {
 	for _, pair := range pairs {
 		kv := strings.Split(pair, "=")
@@ -87,7 +99,7 @@ func parseSubGiftMessage(pairs []string, notice *types.SubGiftNotice) {
 			case "msg-param-recipient-name":
 				notice.RecipientName = value
 			case "msg-param-sub-plan":
-				notice.SubPlan = value
+				notice.SubPlan = parseSubPlan(value)
 			}
 		}
 	}
@@ -108,8 +120,7 @@ func parseRaidNotice(pairs []string, raidNotice *types.RaidNotice) {
 	}
 }
 
-func parseResubNotice(pairs []string, resubNotice *types.ResubNotice) {
-	var notice types.ResubNotice
+func parseSubNotice(pairs []string, notice *types.SubNotice) {
 	for _, pair := range pairs {
 		kv := strings.Split(pair, "=")
 		if len(kv) > 1 {
@@ -118,12 +129,9 @@ func parseResubNotice(pairs []string, resubNotice *types.ResubNotice) {
 			switch key {
 			case "msg-param-cumulative-months":
 				n, _ := strconv.Atoi(value)
-				notice.CumulativeMonths = n
-			case "msg-param-months":
-				n, _ := strconv.Atoi(value)
 				notice.Months = n
 			case "msg-param-sub-plan":
-				notice.SubPlan = value
+				notice.SubPlan = parseSubPlan(value)
 			case "msg-param-was-gifted":
 				notice.WasGifted = value == "true"
 			}
@@ -167,7 +175,7 @@ func parseMetadata(metadata interface{}, pairs []string) []string {
 				case "room-id":
 					m.RoomID = value
 				case "system-msg":
-					m.SystemMsg = value
+					m.SystemMsg = strings.Join(strings.Split(value, `\s`), " ")
 				case "tmi-sent-ts":
 					m.Timestamp = utils.ParseTimestamp(value)
 				case "user-id":
@@ -195,30 +203,28 @@ func ParseUSERNOTICE(rawMsg string, msgChan chan interface{}) {
 
 	switch metadata.MsgID {
 	case "sub":
-		var resubNotice = types.ResubNotice{
+		var resubNotice = types.SubNotice{
 			Metadata: metadata,
 		}
-		parseResubNotice(notUsedPairs, &resubNotice)
+		parseSubNotice(notUsedPairs, &resubNotice)
 		msgChan <- resubNotice
 	case "resub":
-		var resubNotice = types.ResubNotice{
+		var resubNotice = types.SubNotice{
 			Metadata: metadata,
 		}
-		parseResubNotice(notUsedPairs, &resubNotice)
+		parseSubNotice(notUsedPairs, &resubNotice)
 		msgChan <- resubNotice
 	case "raid":
 		var raidNotice = types.RaidNotice{
 			Metadata: metadata,
 		}
 		parseRaidNotice(notUsedPairs, &raidNotice)
-		fmt.Println("RAID NOTICE", raidNotice)
 		msgChan <- raidNotice
 	case "subgift":
 		var notice = types.SubGiftNotice{
 			Metadata: metadata,
 		}
 		parseSubGiftMessage(notUsedPairs, &notice)
-		fmt.Println("SUBGIF NOTICE", notice)
 		msgChan <- notice
 	}
 }

@@ -58,17 +58,9 @@ type SubGiftNotice struct {
 	SubPlan              string
 }
 
-// type SubNotice struct {
-// 	Metadata         NoticeMetadata
-// 	CumulativeMonths int
-// 	Months           int
-// 	SubPlan          string
-// }
-
-type ResubNotice struct {
-	Metadata         NoticeMetadata
-	CumulativeMonths int
-	Months           int
-	SubPlan          string
-	WasGifted        bool
+type SubNotice struct {
+	Metadata  NoticeMetadata
+	Months    int
+	SubPlan   string
+	WasGifted bool
 }

@@ -52,6 +52,10 @@ func ConstructURL(urls []string, quality string) string {
 	return u
 }
 
+func Capitalize(v string) string {
+	return strings.ToUpper(v[:1]) + v[1:]
+}
+
 func IncludeExecPath(path string) (string, error) {
 	execPath, err := GetExecPath()
 	if err != nil {
