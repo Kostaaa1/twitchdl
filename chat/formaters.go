@@ -1,10 +1,11 @@
-package utils
+package chat
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 )
@@ -24,9 +25,6 @@ type BoxWithLabel struct {
 }
 
 func NewBoxWithLabel(color string) BoxWithLabel {
-	if color == "" {
-		color = "#FFF"
-	}
 	return BoxWithLabel{
 		BoxStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -34,8 +32,7 @@ func NewBoxWithLabel(color string) BoxWithLabel {
 			Padding(0),
 		LabelStyle: lipgloss.
 			NewStyle().
-			Padding(0).
-			Foreground(lipgloss.Color(color)),
+			Padding(0),
 		color: color,
 	}
 }
@@ -45,57 +42,72 @@ func (b *BoxWithLabel) SetWidth(width int) *BoxWithLabel {
 	return b
 }
 
-func (b *BoxWithLabel) RenderBoxWithTabs(label, content string) string {
+func (b *BoxWithLabel) renderLabel(chat *Chat) string {
+	border := lipgloss.Border{
+		Top:         "─",
+		Left:        "│",
+		Right:       "│",
+		TopLeft:     "╭",
+		TopRight:    "╮",
+		BottomLeft:  "│",
+		BottomRight: "╰",
+		Bottom:      "─",
+	}
+
+	if chat.ID > 0 {
+		border.BottomRight = "┴"
+		border.BottomLeft = "┴"
+		border.Bottom = "─"
+	}
+	if chat.IsActive {
+		border.Bottom = " "
+		border.BottomRight = "┴"
+		border.BottomLeft = "┴"
+	}
+
+	l := b.LabelStyle.Border(border).
+		BorderForeground(lipgloss.Color(b.color)).
+		Bold(true).
+		Italic(true).
+		Padding(0)
+
+	if chat.IsActive {
+		l = l.Foreground(lipgloss.Color(b.color))
+	}
+	return l.Render(chat.channel)
+}
+
+func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
 	var (
 		topBorderStyler func(strs ...string) string = lipgloss.NewStyle().
 				Foreground(b.BoxStyle.GetBorderTopForeground()).
 				Render
-		border        lipgloss.Border = b.BoxStyle.GetBorderStyle()
-		topLeft       string          = topBorderStyler(border.TopLeft)
-		topRight      string          = topBorderStyler(border.TopRight)
-		renderedLabel string          = b.LabelStyle.Border(lipgloss.Border{
-			Top:         "─",
-			Left:        "│",
-			Right:       "│",
-			TopLeft:     "╭",
-			TopRight:    "╮",
-			BottomLeft:  "│",
-			BottomRight: "╰",
-		}).
-			BorderForeground(lipgloss.Color(b.color)).
-			Bold(true).
-			Italic(true).
-			Padding(0).
-			Render(label)
-		// renderedLabel2 string = b.LabelStyle.Border(lipgloss.Border{
-		// 	Top:         "─",
-		// 	Bottom:      "─",
-		// 	Left:        "│",
-		// 	Right:       "│",
-		// 	TopLeft:     "╭",
-		// 	TopRight:    "╮",
-		// 	BottomLeft:  "┴",
-		// 	BottomRight: "┴",
-		// }).
-		// 	BorderForeground(lipgloss.Color(b.color)).
-		// 	Padding(0).
-		// 	Render(label)
+		border   lipgloss.Border = b.BoxStyle.GetBorderStyle()
+		topLeft  string          = topBorderStyler(border.TopLeft)
+		topRight string          = topBorderStyler(border.TopRight)
 	)
 
 	width := lipgloss.Width(content)
 	if b.width != 0 {
 		width = b.width
 	}
-
 	borderWidth := b.BoxStyle.GetHorizontalBorderSize()
-	horLabels := lipgloss.JoinHorizontal(lipgloss.Position(0), renderedLabel)
-	cellsShort := max(0, width+borderWidth-lipgloss.Width(topLeft+topRight+horLabels))
+
+	var stack []string
+	for i := range *chats {
+		stack = append(stack, b.renderLabel(&(*chats)[i]))
+	}
+
+	labels := lipgloss.JoinHorizontal(lipgloss.Position(0), stack...)
+	// horLabels := lipgloss.JoinHorizontal(lipgloss.Position(0), renderedLabel, renderedLabel2)
+	cellsShort := max(0, width+borderWidth-lipgloss.Width(topLeft+topRight+labels))
 	gap := strings.Repeat(border.Top, cellsShort+1)
-	top := horLabels + topBorderStyler(gap) + topRight
+	top := labels + topBorderStyler(gap) + topRight
 	bottom := b.BoxStyle.
 		BorderTop(false).
 		Width(width).
 		Render(content)
+
 	return top + "\n" + bottom + "\n"
 }
 
@@ -172,19 +184,19 @@ func GenerateIcon(userType string) string {
 	return ""
 }
 
-func formatMessageTimestamp(timestamp string, msg string) string {
-	msgHeight := lipgloss.Height(msg)
-	var newT string = timestamp
-	for i := 1; i < msgHeight; i++ {
-		newT += "\n" + strings.Repeat(" ", lipgloss.Width(timestamp))
-	}
-	return lipgloss.JoinHorizontal(1, newT, msg)
-}
+// func formatMessageTimestamp(timestamp string, msg string) string {
+// 	msgHeight := lipgloss.Height(msg)
+// 	var newT string = timestamp
+// 	for i := 1; i < msgHeight; i++ {
+// 		newT += "\n" + strings.Repeat(" ", lipgloss.Width(timestamp))
+// 	}
+// 	return lipgloss.JoinHorizontal(1, newT, msg)
+// }
 
 func FormatChatMessage(message types.ChatMessage, width int) string {
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
-		message.Metadata.Color = GetRandHex()
+		message.Metadata.Color = utils.GetRandHex()
 	}
 	msg := fmt.Sprintf(
 		"%s%s: %s",
@@ -196,7 +208,8 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 	msg = wordwrap.String(msg, width-14)
 	if !message.IsFirstMessage {
 		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s] ", message.Metadata.Timestamp))
-		return formatMessageTimestamp(timestamp, msg)
+		// return formatMessageTimestamp(timestamp, msg)
+		return fmt.Sprintf("%s%s", timestamp, msg)
 	} else {
 		box := NewBoxWithLabel(firstMsgColor)
 		return box.RenderBox(" First message ", msg)
@@ -206,7 +219,7 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 func FormatSubMessage(message types.SubNotice, width int) string {
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
-		message.Metadata.Color = GetRandHex()
+		message.Metadata.Color = utils.GetRandHex()
 	}
 	msg := fmt.Sprintf(
 		"%s%s: ✯ %s",
@@ -216,7 +229,7 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 	)
 	box := NewBoxWithLabel(subColor)
 	msg = wordwrap.String(msg, width-20)
-	label := lipgloss.NewStyle().Foreground(lipgloss.Color(subColor)).Render(fmt.Sprintf(" %s ", Capitalize(message.SubPlan)))
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color(subColor)).Render(fmt.Sprintf(" %s ", utils.Capitalize(message.SubPlan)))
 	return box.RenderBox(label, msg)
 }
 

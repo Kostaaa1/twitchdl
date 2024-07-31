@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,17 +16,23 @@ type NewChannelMessage struct {
 	Data interface{}
 }
 
+type Chat struct {
+	ID        int
+	IsActive  bool
+	messages  []string
+	channel   string
+	roomState types.RoomState
+}
+
 type Model struct {
 	ws        *WebSocketClient
 	viewport  viewport.Model
+	labelBox  BoxWithLabel
+	textinput textinput.Model
 	width     int
 	height    int
 	msgChan   chan interface{}
-	textinput textinput.Model
-	messages  []string
-	labelBox  utils.BoxWithLabel
-	channel   string
-	roomState types.RoomState
+	chats     *[]Chat
 }
 
 func Start() {
@@ -37,23 +42,24 @@ func Start() {
 }
 
 func initModel() tea.Model {
-	channel := "loud_coringa"
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
+	t := textinput.New()
+	t.CharLimit = 500
+	t.Placeholder = "Send a message"
+	t.Prompt = "▶ "
+	t.Focus()
 
 	msgChan := make(chan interface{})
 	ws, err := CreateWSClient()
 	if err != nil {
 		panic(err)
 	}
-	go ws.Connect("x1ug4nduxyhopsdc1zrwbi1c3f5m0f", "slorpglorpski", channel, msgChan)
 
-	t := textinput.New()
-	t.CharLimit = 500
-	t.Placeholder = "Send a message"
-	t.Prompt = "▶ "
-	t.Focus()
-	labelBox := utils.NewBoxWithLabel("#8839ef")
+	// channel := "zackrawrr"
+	// channel2 := "piratesoftware"
+	channels := []string{"zackrawrr", "hasanabi"}
+	go ws.Connect("x1ug4nduxyhopsdc1zrwbi1c3f5m0f", "slorpglorpski", msgChan, channels)
 
 	return Model{
 		ws:        ws,
@@ -61,12 +67,45 @@ func initModel() tea.Model {
 		width:     0,
 		height:    0,
 		msgChan:   msgChan,
+		labelBox:  NewBoxWithLabel("#8839ef"),
 		textinput: t,
-		roomState: types.RoomState{},
-		labelBox:  labelBox,
-		messages:  []string{},
-		channel:   channel,
+		chats: &[]Chat{
+			{
+				ID:        0,
+				IsActive:  true,
+				roomState: types.RoomState{},
+				messages:  []string{},
+				channel:   channels[0],
+			},
+			{
+				ID:        1,
+				IsActive:  false,
+				roomState: types.RoomState{},
+				messages:  []string{},
+				channel:   channels[1],
+			},
+		},
 	}
+}
+
+func (m Model) getActiveChat() *Chat {
+	for i := range *m.chats {
+		if (*m.chats)[i].IsActive {
+			c := &(*m.chats)[i]
+			return c
+		}
+	}
+	return nil
+}
+
+func (m Model) getChat(roomID string) *Chat {
+	for i := range *m.chats {
+		if (*m.chats)[i].roomState.RoomID == roomID {
+			c := &(*m.chats)[i]
+			return c
+		}
+	}
+	return nil
 }
 
 func (m Model) Init() tea.Cmd {
@@ -86,6 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		vpCmd tea.Cmd
 	)
 	m.textinput, tiCmd = m.textinput.Update(msg)
+	// chat := &(*m.chats)[0]
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -108,19 +148,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.textinput.Value() == "" {
 				return m, nil
 			}
-			newMessage := types.ChatMessage{
-				Message: m.textinput.Value(),
-				// Color:        m.roomState.Color,
-				// DisplayName:  m.roomState.DisplayName,
-				// IsMod:        m.roomState.IsMod,
-				// IsSubscriber: m.roomState.IsSubscriber,
-				// Timestamp:    utils.GetCurrentTimeFormatted(),
+
+			// newMessage := types.ChatMessage{
+			// 	Message: m.textinput.Value(),
+			// 	// Color:        m.roomState.Color,
+			// 	// DisplayName:  m.roomState.DisplayName,
+			// 	// IsMod:        m.roomState.IsMod,
+			// 	// IsSubscriber: m.roomState.IsSubscriber,
+			// 	// Timestamp:    utils.GetCurrentTimeFormatted(),
+			// }
+			// m.ws.FormatIRCMsgAndSend("PRIVMSG", chat.channel, m.textinput.Value())
+			// chat.messages = append(chat.messages, FormatChatMessage(newMessage, m.width))
+			// m.viewport.SetContent(strings.Join(chat.messages, "\n"))
+			// m.textinput.Reset()
+			// m.viewport.GotoBottom()
+
+		case tea.KeyTab:
+			t := m.getActiveChat()
+			if t.ID < len(*m.chats)-1 {
+				t.IsActive = false
+				next := &(*m.chats)[t.ID+1]
+				next.IsActive = true
+				m.viewport.SetContent(strings.Join(next.messages, "\n"))
+				m.viewport.GotoBottom()
+				return m, m.waitForMsg()
 			}
-			m.ws.FormatIRCMsgAndSend("PRIVMSG", m.channel, m.textinput.Value())
-			m.messages = append(m.messages, utils.FormatChatMessage(newMessage, m.width))
-			m.viewport.SetContent(strings.Join(m.messages, "\n"))
-			m.textinput.Reset()
-			m.viewport.GotoBottom()
+
+		case tea.KeyShiftTab:
+			t := m.getActiveChat()
+			if t.ID > 0 {
+				t.IsActive = false
+				prev := &(*m.chats)[t.ID-1]
+				prev.IsActive = true
+				m.viewport.SetContent(strings.Join(prev.messages, "\n"))
+				m.viewport.GotoBottom()
+				return m, m.waitForMsg()
+			}
 		case tea.KeyUp, tea.KeyDown:
 			m.viewport, vpCmd = m.viewport.Update(msg)
 		}
@@ -128,21 +191,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NewChannelMessage:
 		switch chanMsg := msg.Data.(type) {
 		case types.RoomState:
-			m.roomState = chanMsg
-			m.messages = append(m.messages, lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", m.channel)))
-			return m, m.waitForMsg()
-		case types.ChatMessage:
-			if len(m.messages) == 100 {
-				m.messages = m.messages[1:]
+			for i := range *m.chats {
+				c := &(*m.chats)[i]
+				if c.roomState.RoomID == "" {
+					c.roomState = chanMsg
+					initMsg := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", c.channel))
+					c.messages = append(c.messages, initMsg)
+					break
+				}
 			}
-			m.messages = append(m.messages, utils.FormatChatMessage(chanMsg, m.width))
-			m.viewport.SetContent(strings.Join(m.messages, "\n"))
-			m.viewport.GotoBottom()
 			return m, m.waitForMsg()
+
+		case types.ChatMessage:
+			chat := m.getChat(chanMsg.Metadata.RoomID)
+			if len(chat.messages) == 100 {
+				chat.messages = chat.messages[1:]
+			}
+			chat.messages = append(chat.messages, FormatChatMessage(chanMsg, m.width))
+			if chat.IsActive {
+				m.viewport.SetContent(strings.Join(chat.messages, "\n"))
+				m.viewport.GotoBottom()
+			}
+			return m, m.waitForMsg()
+
 		case types.SubNotice:
-			m.messages = append(m.messages, utils.FormatSubMessage(chanMsg, m.width))
-			m.viewport.SetContent(strings.Join(m.messages, "\n"))
-			m.viewport.GotoBottom()
+			chat := m.getChat(chanMsg.Metadata.RoomID)
+			if len(chat.messages) == 100 {
+				chat.messages = chat.messages[1:]
+			}
+			chat.messages = append(chat.messages, FormatSubMessage(chanMsg, m.width))
+			if chat.IsActive {
+				m.viewport.SetContent(strings.Join(chat.messages, "\n"))
+				m.viewport.GotoBottom()
+			}
 			return m, m.waitForMsg()
 		}
 	}
@@ -150,13 +231,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) renderRoomState() string {
+	chat := m.getActiveChat()
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color("#888892"))
 	switch {
-	case m.roomState.IsEmoteOnly:
+	case chat.roomState.IsEmoteOnly:
 		return style.Render("[Emote-Only Chat] ")
-	case m.roomState.IsFollowersOnly:
+	case chat.roomState.IsFollowersOnly:
 		return style.Render("[Followers-Only Chat] ")
-	case m.roomState.IsSubsOnly:
+	case chat.roomState.IsSubsOnly:
 		return style.Render("[Subscriber-Only Chat] ")
 	default:
 		return " "
@@ -167,7 +249,7 @@ func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.labelBox.
 		SetWidth(m.viewport.Width).
-		RenderBoxWithTabs(fmt.Sprintf(" %s ", m.channel), m.viewport.View()))
+		RenderBoxWithTabs(m.chats, m.viewport.View()))
 	b.WriteString(m.renderRoomState())
 	b.WriteString(m.textinput.View())
 	return b.String()

@@ -33,16 +33,14 @@ func (c *WebSocketClient) FormatIRCMsgAndSend(tag, channel, msg string) error {
 	return c.SendMessage([]byte(formatted))
 }
 
-func (c *WebSocketClient) Connect(accessToken, username, channel string, msgChan chan interface{}) {
+func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan interface{}, channels []string) {
 	c.SendMessage([]byte("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"))
 	pass := fmt.Sprintf("PASS oauth:%s", accessToken)
 	c.SendMessage([]byte(pass))
 	nick := fmt.Sprintf("NICK %s", username)
 	c.SendMessage([]byte(nick))
-	join := fmt.Sprintf("JOIN #%s", channel)
+	join := fmt.Sprintf("JOIN #%s", strings.Join(channels, ",#"))
 	c.SendMessage([]byte(join))
-
-	hasValue := false
 	pattern := `\b(PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
 	re := regexp.MustCompile(pattern)
 
@@ -59,17 +57,13 @@ func (c *WebSocketClient) Connect(accessToken, username, channel string, msgChan
 				tag := tags[1]
 				switch tag {
 				case "USERSTATE":
-					if !hasValue {
-						hasValue = true
-						m := parseROOMSTATE(rawIRCMessage)
-						msgChan <- m
-					}
+					m := parseROOMSTATE(rawIRCMessage)
+					msgChan <- m
 				case "PRIVMSG":
 					parsed := parsePRIVMSG(rawIRCMessage)
 					msgChan <- parsed
 				case "USERNOTICE":
 					ParseUSERNOTICE(rawIRCMessage, msgChan)
-					// msgChan <- parsed
 				}
 			}
 		}
