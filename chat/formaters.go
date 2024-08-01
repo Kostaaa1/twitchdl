@@ -42,7 +42,7 @@ func (b *BoxWithLabel) SetWidth(width int) *BoxWithLabel {
 	return b
 }
 
-func (b *BoxWithLabel) renderLabel(chat *Chat) string {
+func (b *BoxWithLabel) renderLabel(chat *Chat, id int) string {
 	border := lipgloss.Border{
 		Top:         "─",
 		Left:        "│",
@@ -56,20 +56,20 @@ func (b *BoxWithLabel) renderLabel(chat *Chat) string {
 
 	if chat.IsActive {
 		border.Bottom = " "
-		// if chat.ID == 0 {
-		// 	border.BottomLeft = "│"
-		// } else {
-		// 	border.BottomRight = "╰"
-		// 	border.BottomLeft = "╯"
-		// }
+		if id == 0 {
+			border.BottomLeft = "│"
+		} else {
+			border.BottomRight = "╰"
+			border.BottomLeft = "╯"
+		}
 	} else {
-		// if chat.ID == 0 {
-		// 	border.BottomLeft = "├"
-		// 	border.BottomRight = "┴"
-		// } else {
-		// 	border.BottomRight = "┴"
-		// 	border.BottomLeft = "┴"
-		// }
+		if id == 0 {
+			border.BottomLeft = "├"
+			border.BottomRight = "┴"
+		} else {
+			border.BottomRight = "┴"
+			border.BottomLeft = "┴"
+		}
 	}
 
 	l := b.LabelStyle.Border(border).
@@ -102,7 +102,7 @@ func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
 
 	var stack []string
 	for i := range *chats {
-		stack = append(stack, b.renderLabel(&(*chats)[i]))
+		stack = append(stack, b.renderLabel(&(*chats)[i], i))
 	}
 	// horLabels := lipgloss.JoinHorizontal(lipgloss.Position(0), renderedLabel, renderedLabel2)
 	labels := lipgloss.JoinHorizontal(lipgloss.Position(0), stack...)

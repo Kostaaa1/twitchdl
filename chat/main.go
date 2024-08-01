@@ -148,7 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nextTab()
 		case tea.KeyShiftTab:
 			m.prevTab()
-		case tea.KeyCtrlX:
+		case tea.KeyDelete, tea.KeyBackspace:
 			m.removeActiveChat()
 		case tea.KeyUp, tea.KeyDown:
 			m.viewport, vpCmd = m.viewport.Update(msg)
