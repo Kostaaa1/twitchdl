@@ -12,7 +12,6 @@ type ChatMessageMetadata struct {
 	Metadata
 	RoomID    string
 	Timestamp string
-	UserType  string
 }
 
 type ChatMessage struct {
@@ -21,12 +20,12 @@ type ChatMessage struct {
 	IsFirstMessage bool
 }
 
-type RoomStateMetadata struct {
+type RoomMetadata struct {
 	Metadata
 }
 
-type RoomState struct {
-	Metadata        RoomStateMetadata
+type Room struct {
+	Metadata        RoomMetadata
 	RoomID          string
 	IsEmoteOnly     bool
 	IsFollowersOnly bool

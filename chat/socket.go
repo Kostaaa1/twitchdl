@@ -6,13 +6,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/gorilla/websocket"
 )
 
 type WebSocketClient struct {
-	Conn        *websocket.Conn
-	CurrentUser types.ChatMessage
+	Conn *websocket.Conn
+	// CurrentUser types.ChatMessage
 }
 
 func CreateWSClient() (*WebSocketClient, error) {
@@ -33,6 +32,11 @@ func (c *WebSocketClient) FormatIRCMsgAndSend(tag, channel, msg string) error {
 	return c.SendMessage([]byte(formatted))
 }
 
+func (c *WebSocketClient) LeaveChannel(channel string) {
+	part := fmt.Sprintf("PART #%s", channel)
+	c.SendMessage([]byte(part))
+}
+
 func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan interface{}, channels []string) {
 	c.SendMessage([]byte("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"))
 	pass := fmt.Sprintf("PASS oauth:%s", accessToken)
@@ -41,9 +45,9 @@ func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan int
 	c.SendMessage([]byte(nick))
 	join := fmt.Sprintf("JOIN #%s", strings.Join(channels, ",#"))
 	c.SendMessage([]byte(join))
+
 	pattern := `\b(PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
 	re := regexp.MustCompile(pattern)
-
 	for {
 		msgType, msg, err := c.Conn.ReadMessage()
 		if err != nil {

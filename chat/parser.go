@@ -9,20 +9,20 @@ import (
 	"github.com/Kostaaa1/twitchdl/utils"
 )
 
-func parseROOMSTATE(rawMsg string) types.RoomState {
+func parseROOMSTATE(rawMsg string) types.Room {
 	var parts []string
 	metadata := strings.Split(rawMsg, "@")
-	var roomState = types.RoomState{
-		Metadata: types.RoomStateMetadata{},
+	var room = types.Room{
+		Metadata: types.RoomMetadata{},
 	}
 	if len(metadata) < 3 {
-		return roomState
+		return room
 	}
 	userMD := strings.Split(metadata[1], " :")[0]
 	roomMD := strings.Split(metadata[2], " :")[0]
 	parts = append(parts, strings.Split(userMD, ";")...)
 	parts = append(parts, strings.Split(roomMD, ";")...)
-	parseMetadata(&roomState.Metadata, parts)
+	parseMetadata(&room.Metadata, parts)
 
 	for _, part := range parts {
 		kv := strings.Split(part, "=")
@@ -31,17 +31,17 @@ func parseROOMSTATE(rawMsg string) types.RoomState {
 			value := kv[1]
 			switch key {
 			case "room-id":
-				roomState.RoomID = value
+				room.RoomID = value
 			case "emote-only":
-				roomState.IsEmoteOnly = value == "1"
+				room.IsEmoteOnly = value == "1"
 			case "followers-only":
-				roomState.IsFollowersOnly = value == "-1"
+				room.IsFollowersOnly = value == "-1"
 			case "subs-only":
-				roomState.IsSubsOnly = value == "1"
+				room.IsSubsOnly = value == "1"
 			}
 		}
 	}
-	return roomState
+	return room
 }
 
 func parsePRIVMSG(msg string) types.ChatMessage {
@@ -165,7 +165,7 @@ func parseMetadata(metadata interface{}, pairs []string) []string {
 			key := kv[0]
 			value := kv[1]
 			switch m := metadata.(type) {
-			case *types.RoomStateMetadata:
+			case *types.RoomMetadata:
 				parseBaseMetadata(&m.Metadata, key, value, pair)
 			case *types.NoticeMetadata:
 				parseBaseMetadata(&m.Metadata, key, value, pair)
