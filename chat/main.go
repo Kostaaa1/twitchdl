@@ -18,11 +18,10 @@ type NewChannelMessage struct {
 }
 
 type Chat struct {
-	// ID          int
 	IsActive    bool
 	messages    []string
 	channelName string
-	roomState   types.Room
+	room        types.Room
 }
 
 type Model struct {
@@ -37,7 +36,7 @@ type Model struct {
 }
 
 func Start() {
-	channels := []string{"nmplol", "zackrawrr", "kaellyn"}
+	channels := []string{"piratesoftware", "jasontheween"}
 	at := "x1ug4nduxyhopsdc1zrwbi1c3f5m0f"
 	user := "slorpglorpski"
 
@@ -68,10 +67,11 @@ func initModel(accessToken, username string, channels []string) tea.Model {
 			// ID:          i,
 			IsActive:    i == 0,
 			messages:    []string{},
-			roomState:   types.Room{},
+			room:        types.Room{},
 			channelName: channel,
 		})
 	}
+
 	return Model{
 		ws:        ws,
 		viewport:  vp,
@@ -82,26 +82,6 @@ func initModel(accessToken, username string, channels []string) tea.Model {
 		textinput: t,
 		chats:     &chats,
 	}
-}
-
-func (m Model) getActiveChat() *Chat {
-	for i := range *m.chats {
-		if (*m.chats)[i].IsActive {
-			c := &(*m.chats)[i]
-			return c
-		}
-	}
-	return nil
-}
-
-func (m Model) getChat(roomID string) *Chat {
-	for i := range *m.chats {
-		if (*m.chats)[i].roomState.RoomID == roomID {
-			c := &(*m.chats)[i]
-			return c
-		}
-	}
-	return nil
 }
 
 func (m Model) Init() tea.Cmd {
@@ -131,7 +111,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Height = h
 		m.width = w
 		m.height = h
-		m.viewport.Style = lipgloss.NewStyle().
+		m.viewport.Style = lipgloss.
+			NewStyle().
 			Width(m.viewport.Width).
 			Height(m.viewport.Height)
 
@@ -148,9 +129,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.nextTab()
 		case tea.KeyShiftTab:
 			m.prevTab()
-		case tea.KeyDelete, tea.KeyBackspace:
+		case tea.KeyCtrlW:
 			m.removeActiveChat()
-		case tea.KeyUp, tea.KeyDown:
+
 			m.viewport, vpCmd = m.viewport.Update(msg)
 		}
 
@@ -174,7 +155,6 @@ func (m *Model) removeActiveChat() {
 	if len(*m.chats) == 1 {
 		return
 	}
-
 	chat := m.getActiveChat()
 	m.ws.LeaveChannel(chat.channelName)
 	chats := []Chat{}
@@ -197,34 +177,53 @@ func (m *Model) removeActiveChat() {
 	m.chats = &chats
 }
 
-func (m *Model) sendMessage() {
-	chat := m.getActiveChat()
+func (m *Model) createNewMessage(chat *Chat) types.ChatMessage {
 	newMessage := types.ChatMessage{
 		Message: m.textinput.Value(),
 		Metadata: types.ChatMessageMetadata{
 			Metadata: types.Metadata{
-				Color:        chat.roomState.Metadata.Color,
-				DisplayName:  chat.roomState.Metadata.DisplayName,
-				IsMod:        chat.roomState.Metadata.IsMod,
-				IsSubscriber: chat.roomState.Metadata.IsSubscriber,
-				UserType:     chat.roomState.Metadata.UserType,
+				Color:        chat.room.Metadata.Color,
+				DisplayName:  chat.room.Metadata.DisplayName,
+				IsMod:        chat.room.Metadata.IsMod,
+				IsSubscriber: chat.room.Metadata.IsSubscriber,
+				UserType:     chat.room.Metadata.UserType,
 			},
-			RoomID:    chat.roomState.RoomID,
+			RoomID:    chat.room.RoomID,
 			Timestamp: utils.GetCurrentTimeFormatted(),
 		},
 	}
+	return newMessage
+}
+
+func renderInfo() string {
+	return lipgloss.NewStyle().Faint(true).Render("\n\n[Tab]-next [Shfit+Tab]-prev [Ctrl+w]-Close chat")
+}
+
+func (m Model) View() string {
+	var b strings.Builder
+	b.WriteString(m.labelBox.
+		SetWidth(m.viewport.Width).
+		RenderBoxWithTabs(m.chats, m.viewport.View()))
+	b.WriteString(fmt.Sprintf("%s ", m.renderRoom()))
+	b.WriteString(m.textinput.View())
+	b.WriteString(renderInfo())
+	return b.String()
+}
+
+func (m *Model) sendMessage() {
+	chat := m.getActiveChat()
+	newMessage := m.createNewMessage(chat)
 	m.ws.FormatIRCMsgAndSend("PRIVMSG", chat.channelName, m.textinput.Value())
 	chat.messages = append(chat.messages, FormatChatMessage(newMessage, m.width))
-	m.viewport.SetContent(strings.Join(chat.messages, "\n"))
+	m.updateViewport(chat)
 	m.textinput.Reset()
-	m.viewport.GotoBottom()
 }
 
 func (m *Model) addRoom(chanMsg types.Room) {
 	for i := range *m.chats {
 		c := &(*m.chats)[i]
-		if c.roomState.RoomID == "" {
-			c.roomState = chanMsg
+		if c.room.RoomID == "" {
+			c.room = chanMsg
 			initMsg := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", c.channelName))
 			c.messages = append(c.messages, initMsg)
 			break
@@ -248,65 +247,80 @@ func (m *Model) updateViewport(chat *Chat) {
 }
 
 func (m *Model) nextTab() {
-	for i := range *m.chats {
-		if i < len(*m.chats)-1 && (*m.chats)[i].IsActive {
-			c := &(*m.chats)[i]
-			c.IsActive = false
-			next := &(*m.chats)[i+1]
-			next.IsActive = true
-			m.updateViewport(next)
+	var activeIndex int
+	for i, chat := range *m.chats {
+		if chat.IsActive {
+			activeIndex = i
 			break
 		}
 	}
-	// t := m.getActiveChat()
-	// if t.ID < len(*m.chats)-1 {
-	// 	t.IsActive = false
-	// 	next := &(*m.chats)[t.ID+1]
-	// 	next.IsActive = true
-	// 	m.updateViewport(next)
+	(*m.chats)[activeIndex].IsActive = false
+	nextIndex := (activeIndex + 1) % len(*m.chats)
+	(*m.chats)[nextIndex].IsActive = true
+	m.updateViewport(&(*m.chats)[nextIndex])
+	// for i := range *m.chats {
+	// 	c := &(*m.chats)[i]
+	// 	if (*m.chats)[i].IsActive {
+	// 		v := i
+	// 		if i < len(*m.chats)-1 {
+	// 			v += 1
+	// 		} else {
+	// 			v = 0
+	// 		}
+	// 		c.IsActive = false
+	// 		next := &(*m.chats)[v]
+	// 		next.IsActive = true
+	// 		m.updateViewport(next)
+	// 		break
+	// 	}
 	// }
 }
 
 func (m *Model) prevTab() {
-	for i := range *m.chats {
-		if i > 0 && (*m.chats)[i].IsActive {
-			c := &(*m.chats)[i]
-			c.IsActive = false
-			prevChat := &(*m.chats)[i-1]
-			prevChat.IsActive = true
-			m.updateViewport(prevChat)
+	var activeIndex int
+	for i, c := range *m.chats {
+		if c.IsActive {
+			activeIndex = i
 			break
 		}
 	}
+	(*m.chats)[activeIndex].IsActive = false
+	prevIndex := (activeIndex - 1 + len(*m.chats)) % len(*m.chats)
+	(*m.chats)[prevIndex].IsActive = true
+	m.updateViewport(&(*m.chats)[prevIndex])
 }
 
-func (m Model) renderRoomState() string {
+func (m Model) getActiveChat() *Chat {
+	for i := range *m.chats {
+		if (*m.chats)[i].IsActive {
+			c := &(*m.chats)[i]
+			return c
+		}
+	}
+	return nil
+}
+func (m Model) getChat(roomID string) *Chat {
+	for i := range *m.chats {
+		if (*m.chats)[i].room.RoomID == roomID {
+			c := &(*m.chats)[i]
+			return c
+		}
+	}
+	return nil
+}
+
+func (m Model) renderRoom() string {
 	chat := m.getActiveChat()
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("#888892"))
+	style := lipgloss.NewStyle().Faint(true)
 
 	switch {
-	case chat.roomState.IsEmoteOnly:
-		return style.Render("[Emote-Only Chat] ")
-	case chat.roomState.IsFollowersOnly:
-		return style.Render("[Followers-Only Chat] ")
-	case chat.roomState.IsSubsOnly:
-		return style.Render("[Subscriber-Only Chat] ")
+	case chat.room.IsEmoteOnly:
+		return style.Render("[Emote-Only Chat]")
+	case chat.room.IsFollowersOnly:
+		return style.Render("[Followers-Only Chat]")
+	case chat.room.IsSubsOnly:
+		return style.Render("[Subscriber-Only Chat]")
 	default:
-		return " "
+		return ""
 	}
-}
-
-func renderInfo() string {
-	return lipgloss.NewStyle().Faint(true).Render("\n\n[Ctrl+Tab]-next [Shfit+Tab]-prev [Ctrl+x]-Close chat")
-}
-
-func (m Model) View() string {
-	var b strings.Builder
-	b.WriteString(m.labelBox.
-		SetWidth(m.viewport.Width).
-		RenderBoxWithTabs(m.chats, m.viewport.View()))
-	b.WriteString(m.renderRoomState())
-	b.WriteString(m.textinput.View())
-	b.WriteString(renderInfo())
-	return b.String()
 }

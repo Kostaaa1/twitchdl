@@ -62,7 +62,7 @@ func parsePRIVMSG(msg string) types.ChatMessage {
 			value := kv[1]
 			switch key {
 			case "first-msg":
-				message.IsFirstMessage = value == "1"
+				message.Metadata.IsFirstMessage = value == "1"
 			}
 		}
 	}

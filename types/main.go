@@ -10,14 +10,14 @@ type Metadata struct {
 
 type ChatMessageMetadata struct {
 	Metadata
-	RoomID    string
-	Timestamp string
+	RoomID         string
+	IsFirstMessage bool
+	Timestamp      string
 }
 
 type ChatMessage struct {
-	Metadata       ChatMessageMetadata
-	Message        string
-	IsFirstMessage bool
+	Metadata ChatMessageMetadata
+	Message  string
 }
 
 type RoomMetadata struct {

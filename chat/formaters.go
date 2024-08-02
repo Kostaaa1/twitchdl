@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	subColor          = "#04a5e5"
-	announcementColor = "#40a02b"
-	raidColor         = "#fe640b"
-	firstMsgColor     = "#ea76db"
+	subColor = "#04a5e5"
+	// announcementColor = "#40a02b"
+	raidColor     = "#fe640b"
+	firstMsgColor = "#ea76db"
 )
 
 type BoxWithLabel struct {
@@ -104,8 +104,8 @@ func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
 	for i := range *chats {
 		stack = append(stack, b.renderLabel(&(*chats)[i], i))
 	}
-	// horLabels := lipgloss.JoinHorizontal(lipgloss.Position(0), renderedLabel, renderedLabel2)
 	labels := lipgloss.JoinHorizontal(lipgloss.Position(0), stack...)
+
 	cellsShort := max(0, width+borderWidth-lipgloss.Width(topLeft+topRight+labels))
 	gap := strings.Repeat(border.Top, cellsShort+1)
 	top := labels + topBorderStyler(gap) + topRight
@@ -178,15 +178,15 @@ func usernameColorizer(color string) lipgloss.Style {
 func GenerateIcon(userType string) string {
 	switch userType {
 	case "broadcaster":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#d20f39")).Render("[]")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#d20f39")).Render(" [] ")
 	case "mod":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#40a02b")).Render("[⛨]")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#40a02b")).Render(" [⛨] ")
 	case "vip":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ea76cb")).Render("[★]")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ea76cb")).Render(" [★] ")
 	case "staff":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#8839ef")).Render("[★]")
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#8839ef")).Render(" [★] ")
 	}
-	return ""
+	return " "
 }
 
 // func formatMessageTimestamp(timestamp string, msg string) string {
@@ -211,10 +211,10 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 	)
 
 	msg = wordwrap.String(msg, width-14)
-	if !message.IsFirstMessage {
-		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s] ", message.Metadata.Timestamp))
-		// return formatMessageTimestamp(timestamp, msg)
+	if !message.Metadata.IsFirstMessage {
+		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s]", message.Metadata.Timestamp))
 		return fmt.Sprintf("%s%s", timestamp, msg)
+		// return formatMessageTimestamp(timestamp, msg)
 	} else {
 		box := NewBoxWithLabel(firstMsgColor)
 		return box.RenderBox(" First message ", msg)
@@ -238,30 +238,22 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 	return box.RenderBox(label, msg)
 }
 
-// func FormatAnnouncementMessage(message types.AnnouncementMessage, width int) string {
-// 	box := NewBoxWithLabel(announcementColor)
-// 	msg := fmt.Sprintf(
-// 		"%s: %s",
-// 		usernameColorizer(message.Color).Render(message.DisplayName),
-// 		message.Message,
-// 	)
-// 	msg = wordwrap.String(msg, width)
-// 	return box.Render("Announcement", msg)
-// }
-
-// func FormatRaidMessage(message types.RaidMessage, width int) string {
-// 	box := NewBoxWithLabel(raidColor)
-// 	msg := fmt.Sprintf(
-// 		"%s raided the channel with %s viewers!",
-// 		usernameColorizer(message.Color).Render(message.DisplayName),
-// 		message.ViewerCount,
-// 	)
-// 	msg = wordwrap.String(msg, width)
-// 	if highlightRaids {
-// 		return box.Render("Raid", msg)
-// 	}
-// 	return msg + "\n"
-// }
+func FormatRaidMessage(message types.RaidNotice, width int) string {
+	icon := GenerateIcon(message.Metadata.UserType)
+	if message.Metadata.Color == "" {
+		message.Metadata.Color = utils.GetRandHex()
+	}
+	msg := fmt.Sprintf(
+		"%s%s: ✯ %s",
+		icon,
+		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
+		message.Metadata.SystemMsg,
+	)
+	box := NewBoxWithLabel(raidColor)
+	msg = wordwrap.String(msg, width-20)
+	label := lipgloss.NewStyle().Foreground(lipgloss.Color(raidColor)).Render("Raid")
+	return box.RenderBox(label, msg)
+}
 
 // func FormatGiftSubMessage(message types.SubGiftMessage, width int) string {
 // 	box := NewBoxWithLabel(subColor)
@@ -275,6 +267,17 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 // 		return box.Render("Gift sub", msg)
 // 	}
 // 	return msg + "\n"
+// }
+
+// func FormatAnnouncementMessage(message types.AnnouncementMessage, width int) string {
+// 	box := NewBoxWithLabel(announcementColor)
+// 	msg := fmt.Sprintf(
+// 		"%s: %s",
+// 		usernameColorizer(message.Color).Render(message.DisplayName),
+// 		message.Message,
+// 	)
+// 	msg = wordwrap.String(msg, width)
+// 	return box.Render("Announcement", msg)
 // }
 
 // func FormatMysteryGiftSubMessage(message types.MysterySubGiftMessage, width int) string {

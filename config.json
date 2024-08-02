@@ -1,0 +1,26 @@
+{
+  "userDisplayName": "slorpglorpski",
+  "userDisplayCOlor": "",
+  "showTimestamps": true,
+  "devApp": {
+    "accessToken": "x1ug4nduxyhopsdc1zrwbi1c3f5m0f",
+    "clientId": "z4qytet5kietgqy0q7nxrgr8sverf1",
+    "clientSecret": ""
+  },
+  "color": {
+    "mainWindowBackground": "",
+    "border": "",
+    "timestamp": "",
+    "messages:": {
+      "original": "",
+      "raid": "",
+      "sub": "",
+      "first": "",
+      "subgif": ""
+    }
+  },
+  "paths": {
+    "chrome": "",
+    "download": "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
+  }
+}
