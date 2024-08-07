@@ -69,7 +69,7 @@ func main() {
 			client.logger.Panic("You need to provide the twitch URL bozo.")
 		}
 	}
-	// ////////////////////
+	//////////////////////
 	if cfg.printPaths {
 		db.PrintConfig(client.db)
 		return
@@ -77,7 +77,7 @@ func main() {
 	if cfg.overwrite {
 		db.UpdateBucketValues(client.db, db.DBKeys{Outpath: cfg.output, Jspath: cfg.jspath})
 	}
-	// ////////////////////
+	//////////////////////
 	// if !IsQualityValid(cfg.quality) {
 	// 	log.Printf("input quality (%s) is not supported", cfg.output)
 	// 	PrintQualities()

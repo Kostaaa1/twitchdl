@@ -1,12 +1,11 @@
 package main
 
-import (
-	"github.com/Kostaaa1/twitchdl/chat"
-)
+import "github.com/Kostaaa1/twitchdl/view/chat"
 
 func main() {
-	chat.Start()
-	// channels := []string{"emiru", "zackrawrr", "leahkitties"}
+	chat.Open()
+	///////////////////////////////////////////////////////////////
+	// channels := []string{"emiru"}
 	// at := "x1ug4nduxyhopsdc1zrwbi1c3f5m0f"
 	// user := "slorpglorpski"
 	// msgChan := make(chan interface{}, 100)
@@ -14,5 +13,16 @@ func main() {
 	// if err != nil {
 	// 	panic(err)
 	// }
-	// ws.Connect(at, user, msgChan, channels)
+	// go ws.Connect(at, user, msgChan, channels)
+	// for {
+	// 	select {
+	// 	case msg := <-msgChan:
+	// 		fmt.Println(msg)
+	// 	}
+	// }
+	///////////////////////////////////////////////////////////////
+	// c := twitch.New(http.DefaultClient)
+	// if err := c.OpenStreamInMediaPlayer("nmplol"); err != nil {
+	// 	panic(err)
+	// }
 }

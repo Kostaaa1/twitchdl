@@ -157,10 +157,8 @@ func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 		return fmt.Errorf("failed to create request to get the access token: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-
 	resp, err := c.do(req)
 	if err != nil {
-		fmt.Println("DO ERRPR ", err)
 		return err
 	}
 	if err := c.decodeJSONResponse(resp, &v); err != nil {
@@ -169,16 +167,23 @@ func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 	return nil
 }
 
-func (c *Client) IsChannelLive(channelName string) (bool, error) {
+func IsChannelLive(channelName string) (bool, error) {
 	u := fmt.Sprintf("https://decapi.me/twitch/uptime/%s", channelName)
 	resp, err := http.Get(u)
 	if err != nil {
 		return false, fmt.Errorf("failed getting the response from URL: %s. \nError: %s", u, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return false, fmt.Errorf("channel %s does not exist?", channelName)
+	}
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("failed reading the response Body. \nError: %s", err)
+	}
+	if strings.HasPrefix(string(b), "[Error from Twitch API]") {
+		return false, fmt.Errorf("unexpected error")
 	}
 	return !strings.Contains(string(b), "offline"), nil
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -39,9 +40,21 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 	return data.Data.VideoPlaybackAccessToken.Value, data.Data.VideoPlaybackAccessToken.Signature, nil
 }
 
-func (c *Client) GetMasterStreamPlaylistURL(token, sig, id string) (string, error) {
+func (c *Client) GetStreamMasterPlaylist(channel string) (string, error) {
+	isLive, err := IsChannelLive(channel)
+	if err != nil {
+		return "", err
+	}
+	if !isLive {
+		return "", fmt.Errorf("the channel %s is not live currently", channel)
+	}
+
+	tok, sig, err := c.GetLivestreamCreds(channel)
+	if err != nil {
+		return "", fmt.Errorf("failed to get livestream credentials: %w", err)
+	}
 	u := fmt.Sprintf("%s/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_audio_only=true&allow_source=true",
-		c.usherURL, id, token, sig)
+		c.usherURL, channel, tok, sig)
 	resp, err := c.client.Get(u)
 	if err != nil {
 		return "", err
@@ -57,20 +70,21 @@ func (c *Client) GetMasterStreamPlaylistURL(token, sig, id string) (string, erro
 	return string(b), nil
 }
 
-func (c *Client) GetMasterStreamPlaylist(id string) (string, error) {
-	tok, sig, err := c.GetLivestreamCreds(id)
+func (c *Client) GetStreamMediaPlaylist(channel, quality string) (*m3u8.List, error) {
+	master, err := c.GetStreamMasterPlaylist(channel)
 	if err != nil {
-		return "", fmt.Errorf("failed to get livestream credentials: %w", err)
+		return nil, err
 	}
-	master, err := c.GetMasterStreamPlaylistURL(tok, sig, id)
+	parsed := m3u8.Parse(master)
+	mediaList, err := parsed.GetMediaPlaylist(quality)
 	if err != nil {
-		return "", fmt.Errorf("failed to get master stream playlist: %w", err)
+		return nil, fmt.Errorf("failed to get media playlist: %w", err)
 	}
-	return master, nil
+	return &mediaList, nil
 }
 
 func (c *Client) StartRecording(id, quality, outpath string, bar *progressbar.ProgressBar) error {
-	isLive, err := c.IsChannelLive(id)
+	isLive, err := IsChannelLive(id)
 	if err != nil {
 		return err
 	}
@@ -93,12 +107,7 @@ func isAdRunning(segments []string) int {
 }
 
 func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar.ProgressBar) error {
-	master, err := c.GetMasterStreamPlaylist(id)
-	if err != nil {
-		return err
-	}
-	parsed := m3u8.Parse(master)
-	masterList, err := parsed.GetMasterList(quality)
+	mediaList, err := c.GetStreamMediaPlaylist(id, quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
@@ -116,7 +125,7 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 	for {
 		select {
 		case <-ticker.C:
-			b, err := c.Fetch(masterList.URL)
+			b, err := c.Fetch(mediaList.URL)
 			if err != nil {
 				return fmt.Errorf("failed to fetch playlist: %w", err)
 			}
@@ -142,4 +151,17 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 			}
 		}
 	}
+}
+
+func (c *Client) OpenStreamInMediaPlayer(channel string) error {
+	media, err := c.GetStreamMediaPlaylist(channel, "best")
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("vlc", media.URL)
+	if err := cmd.Run(); err != nil {
+		fmt.Println("EXECUTION ERROR")
+		return err
+	}
+	return nil
 }

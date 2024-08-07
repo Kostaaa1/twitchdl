@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type Metadata struct {
 	Color        string
 	DisplayName  string
@@ -62,4 +64,47 @@ type SubNotice struct {
 	Months    int
 	SubPlan   string
 	WasGifted bool
+}
+
+type Notice struct {
+	MsgID       string
+	DisplayName string
+	SystemMsg   string
+}
+
+type Config struct {
+	ID              string    `json:"id"`
+	Login           string    `json:"login"`
+	DisplayName     string    `json:"displayName"`
+	Type            string    `json:"type"`
+	BroadcasterType string    `json:"broadcasterType"`
+	Description     string    `json:"description"`
+	ProfileImageURL string    `json:"profileImageUrl"`
+	OfflineImageURL string    `json:"offlineImageUrl"`
+	CreatedAt       time.Time `json:"createdAt"`
+	ActiveChannels  []string  `json:"activeChannels"`
+	Creds           struct {
+		AccessToken  string `json:"accessToken"`
+		ClientID     string `json:"clientId"`
+		ClientSecret string `json:"clientSecret"`
+	} `json:"creds"`
+	Config struct {
+		ShowTimestamps bool `json:"showTimestamps"`
+		Colors         struct {
+			MainWindowBackground string `json:"mainWindowBackground"`
+			Border               string `json:"border"`
+			Timestamp            string `json:"timestamp"`
+			Messages             struct {
+				Original string `json:"original"`
+				Raid     string `json:"raid"`
+				Sub      string `json:"sub"`
+				First    string `json:"first"`
+				Subgif   string `json:"subgif"`
+			} `json:"messages:"`
+		} `json:"colors"`
+		Paths struct {
+			ChromePath   string `json:"chromePath"`
+			DownloadPath string `json:"downloadPath"`
+		} `json:"paths"`
+	} `json:"config"`
 }

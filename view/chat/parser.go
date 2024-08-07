@@ -195,7 +195,7 @@ func parseMetadata(metadata interface{}, pairs []string) []string {
 	return notUsedValues
 }
 
-func ParseUSERNOTICE(rawMsg string, msgChan chan interface{}) {
+func parseUSERNOTICE(rawMsg string, msgChan chan interface{}) {
 	parts := strings.SplitN(rawMsg[1:], " :", 2)
 	pairs := strings.Split(parts[0], ";")
 	var metadata types.NoticeMetadata
@@ -226,5 +226,16 @@ func ParseUSERNOTICE(rawMsg string, msgChan chan interface{}) {
 		}
 		parseSubGiftMessage(notUsedPairs, &notice)
 		msgChan <- notice
+	}
+}
+
+func parseNOTICE(rawMsg string) types.Notice {
+	parts := strings.Split(rawMsg[1:], " :")
+	msgID := strings.Split(parts[0], "=")[1]
+	chanName := strings.Split(parts[1], "#")[1]
+	return types.Notice{
+		MsgID:       msgID,
+		SystemMsg:   parts[2],
+		DisplayName: chanName,
 	}
 }

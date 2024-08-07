@@ -91,7 +91,7 @@ func Parse(playlist string) MasterPlaylist {
 	return master
 }
 
-func (playlist *MasterPlaylist) GetMasterList(quality string) (List, error) {
+func (playlist *MasterPlaylist) GetMediaPlaylist(quality string) (List, error) {
 	segments := playlist.Lists
 	for i := 0; i < len(segments); i++ {
 		seg := segments[i]
