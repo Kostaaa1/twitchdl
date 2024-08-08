@@ -1,41 +1,43 @@
-package root
+package command
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
-	viewport  viewport.Model
-	textinput textinput.Model
-	width     int
-	height    int
+	viewport viewport.Model
+	// textinput textinput.Model
+	width  int
+	height int
 }
 
-func Open() {
-	if _, err := tea.NewProgram(initModel(), tea.WithAltScreen()).Run(); err != nil {
+func Open(width, height int) {
+	if _, err := tea.NewProgram(initModel(width, height), tea.WithAltScreen()).Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func initModel() tea.Model {
+func initModel(width, height int) tea.Model {
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
 
-	t := textinput.New()
-	t.CharLimit = 500
-	t.Placeholder = "Send a message"
-	t.Prompt = "▶ "
-	t.Focus()
+	// t := textinput.New()
+	// t.CharLimit = 500
+	// t.Placeholder = "Send a message"
+	// t.Prompt = "▶ "
+	// t.Focus()
 
 	return Model{
-		viewport:  vp,
-		textinput: t,
+		width:    width,
+		height:   height,
+		viewport: vp,
+		// textinput: t,
 	}
 }
 
@@ -48,7 +50,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
 	)
-	m.textinput, tiCmd = m.textinput.Update(msg)
+	// m.textinput, tiCmd = m.textinput.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -75,10 +77,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	var b strings.Builder
+	fmt.Println("KOSTAJ")
 	// b.WriteString(m.labelBox.
 	// 	SetWidth(m.viewport.Width).
 	// 	RenderBoxWithTabs(m.chats, m.viewport.View()))
 	// b.WriteString(fmt.Sprintf("%s ", m.renderRoom()))
-	b.WriteString(m.textinput.View())
+	// b.WriteString(m.textinput.View())
 	return b.String()
 }

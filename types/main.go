@@ -24,6 +24,7 @@ type ChatMessage struct {
 
 type RoomMetadata struct {
 	Metadata
+	Channel string
 }
 
 type Room struct {

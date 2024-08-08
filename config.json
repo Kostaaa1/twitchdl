@@ -1,36 +1,39 @@
 {
-  "id": "972597583",
-  "login": "slorpglorpski",
-  "displayName": "slorpglorpski",
-  "type": "",
-  "broadcasterType": "",
-  "description": "",
-  "profileImageUrl": "https://static-cdn.jtvnw.net/user-default-pictures-uv/de130ab0-def7-11e9-b668-784f43822e80-profile_image-300x300.png",
-  "offlineImageUrl": "",
-  "createdAt": "2023-10-18T21:12:53Z",
-  "activeChannels": ["nmplol", "emiru"],
-  "creds": {
-    "accessToken": "v8iwsul28nzvunofyg7eaae7oj3yt5",
-    "clientId": "z4qytet5kietgqy0q7nxrgr8sverf1",
-    "clientSecret": "t3rfmkhbrkv5opv141s4hwygpk441d"
-  },
+  "activechannels": [
+    "zackrawrr",
+    "mizkif"
+  ],
+  "broadcastertype": "",
   "config": {
-    "showTimestamps": true,
     "colors": {
-      "mainWindowBackground": "",
       "border": "",
-      "timestamp": "",
+      "mainwindowbackground": "",
       "messages:": {
+        "first": "",
         "original": "",
         "raid": "",
         "sub": "",
-        "first": "",
         "subgif": ""
-      }
+      },
+      "timestamp": ""
     },
     "paths": {
-      "chromePath": "",
-      "downloadPath": "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
-    }
-  }
+      "chromepath": "",
+      "downloadpath": "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
+    },
+    "showtimestamps": true
+  },
+  "createdat": "2023-10-18T21:12:53Z",
+  "creds": {
+    "accesstoken": "v8iwsul28nzvunofyg7eaae7oj3yt5",
+    "clientid": "z4qytet5kietgqy0q7nxrgr8sverf1",
+    "clientsecret": "t3rfmkhbrkv5opv141s4hwygpk441d"
+  },
+  "description": "",
+  "displayname": "slorpglorpski",
+  "id": "972597583",
+  "login": "slorpglorpski",
+  "offlineimageurl": "",
+  "profileimageurl": "https://static-cdn.jtvnw.net/user-default-pictures-uv/de130ab0-def7-11e9-b668-784f43822e80-profile_image-300x300.png",
+  "type": ""
 }

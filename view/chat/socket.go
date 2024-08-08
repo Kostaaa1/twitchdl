@@ -62,7 +62,6 @@ func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan int
 		}
 		if msgType == websocket.TextMessage {
 			rawIRCMessage := strings.TrimSpace(string(msg))
-			// msgChan <- rawIRCMessage
 			tags := re.FindStringSubmatch(rawIRCMessage)
 			if len(tags) > 1 {
 				tag := tags[1]

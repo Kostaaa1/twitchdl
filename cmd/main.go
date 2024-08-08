@@ -8,9 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/db"
 	"github.com/Kostaaa1/twitchdl/twitch"
-	"github.com/boltdb/bolt"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -18,7 +16,6 @@ type Config struct {
 	inputURL   string
 	quality    string
 	start, end time.Duration
-	// db paths, maybe remove?
 	output     string
 	printPaths bool
 	jspath     string
@@ -27,18 +24,18 @@ type Config struct {
 
 type Client struct {
 	logger *log.Logger
-	db     *bolt.DB
 	config *Config
+	// db     *bolt.DB
 }
 
 func createNewClient() *Client {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	newDb, err := db.SetupDB()
-	if err != nil {
-		logger.Fatal(err)
-	}
+	// newDb, err := db.SetupDB()
+	// if err != nil {
+	// 	logger.Fatal(err)
+	// }
 	return &Client{
-		db:     newDb,
+		// db:     newDb,
 		logger: logger,
 		config: &Config{},
 	}
@@ -46,10 +43,11 @@ func createNewClient() *Client {
 
 func main() {
 	client := createNewClient()
-	paths, err := db.GetBucketValues(client.db)
-	if err != nil {
-		client.logger.Fatal(err)
-	}
+	// paths, err := db.GetBucketValues(client.db)
+	// if err != nil {
+	// 	client.logger.Fatal(err)
+	// }
+	outpath := "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
 
 	var cfg Config
 	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...},https://twitch.tv/{...}")
@@ -58,8 +56,8 @@ func main() {
 	flag.DurationVar(&cfg.end, "end", time.Duration(0), "The end of the VOD subset. It only works with VODs and it needs to be in this format: '1h33m0s' (optional)")
 	flag.BoolVar(&cfg.overwrite, "overwrite", false, "Overwrite the database paths with provided paths.")
 	flag.BoolVar(&cfg.printPaths, "printPaths", false, "Print the provided paths. If printPaths=true, other options wont execute.")
-	flag.StringVar(&cfg.output, "output", paths.Outpath, "Path to the downloaded video.")
-	flag.StringVar(&cfg.jspath, "jspath", paths.Jspath, "Path to the puppeteer js file.")
+	flag.StringVar(&cfg.output, "output", outpath, "Path to the downloaded video.")
+	// flag.StringVar(&cfg.jspath, "jspath", paths.Jspath, "Path to the puppeteer js file.")
 	flag.Parse()
 
 	if cfg.inputURL == "" {
@@ -70,13 +68,13 @@ func main() {
 		}
 	}
 	//////////////////////
-	if cfg.printPaths {
-		db.PrintConfig(client.db)
-		return
-	}
-	if cfg.overwrite {
-		db.UpdateBucketValues(client.db, db.DBKeys{Outpath: cfg.output, Jspath: cfg.jspath})
-	}
+	// if cfg.printPaths {
+	// 	db.PrintConfig(client.db)
+	// 	return
+	// }
+	// if cfg.overwrite {
+	// 	db.UpdateBucketValues(client.db, db.DBKeys{Outpath: cfg.output, Jspath: cfg.jspath})
+	// }
 	//////////////////////
 	// if !IsQualityValid(cfg.quality) {
 	// 	log.Printf("input quality (%s) is not supported", cfg.output)

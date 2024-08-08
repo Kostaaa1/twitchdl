@@ -18,8 +18,12 @@ func parseROOMSTATE(rawMsg string) types.Room {
 	if len(metadata) < 3 {
 		return room
 	}
-	userMD := strings.Split(metadata[1], " :")[0]
+
+	userParts := strings.Split(metadata[1], " :")
+	room.Metadata.Channel = strings.TrimSpace(strings.Split(userParts[1], "#")[1])
+	userMD := userParts[0]
 	roomMD := strings.Split(metadata[2], " :")[0]
+
 	parts = append(parts, strings.Split(userMD, ";")...)
 	parts = append(parts, strings.Split(roomMD, ";")...)
 	parseMetadata(&room.Metadata, parts)

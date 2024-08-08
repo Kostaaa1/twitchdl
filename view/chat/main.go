@@ -10,6 +10,7 @@ import (
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/Kostaaa1/twitchdl/utils"
+	command "github.com/Kostaaa1/twitchdl/view/commands"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,10 +23,10 @@ type NewChannelMessage struct {
 }
 
 type Chat struct {
-	IsActive    bool
-	channelName string
-	messages    []string
-	room        types.Room
+	IsActive bool
+	channel  string
+	messages []string
+	room     types.Room
 }
 
 type Model struct {
@@ -36,7 +37,7 @@ type Model struct {
 	width        int
 	height       int
 	msgChan      chan interface{}
-	chats        *[]Chat
+	chats        []Chat
 	showCommands bool
 	err          error
 }
@@ -73,7 +74,8 @@ func Open() {
 	var data types.Config
 	viper.Unmarshal(&data)
 
-	if _, err := tea.NewProgram(initChatModel(data.Creds.AccessToken, data.DisplayName, data.ActiveChannels), tea.WithAltScreen()).
+	if _, err := tea.
+		NewProgram(initChatModel(data.Creds.AccessToken, data.DisplayName, data.ActiveChannels), tea.WithAltScreen()).
 		Run(); err != nil {
 		log.Fatal(err)
 	}
@@ -85,8 +87,8 @@ func createNewChat(channel string, isActive bool) Chat {
 		messages: []string{
 			lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", channel)),
 		},
-		room:        types.Room{},
-		channelName: channel,
+		room:    types.Room{},
+		channel: channel,
 	}
 }
 
@@ -110,7 +112,6 @@ func initChatModel(accessToken, username string, channels []string) tea.Model {
 	for i, channel := range channels {
 		chats = append(chats, createNewChat(channel, i == 0))
 	}
-
 	return Model{
 		ws:        ws,
 		viewport:  vp,
@@ -119,27 +120,12 @@ func initChatModel(accessToken, username string, channels []string) tea.Model {
 		msgChan:   msgChan,
 		labelBox:  NewBoxWithLabel("#8839ef"),
 		textinput: t,
-		chats:     &chats,
+		chats:     chats,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
 	return m.waitForMsg()
-}
-
-func (m Model) waitForMsg() tea.Cmd {
-	return func() tea.Msg {
-		newMsg := <-m.msgChan
-		switch newMsg.(type) {
-		case errMsg:
-			time.AfterFunc(time.Second*3, func() {
-				m.msgChan <- errMsg{err: nil}
-			})
-			return newMsg
-		default:
-			return NewChannelMessage{Data: newMsg}
-		}
-	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -174,18 +160,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyShiftTab:
 			m.prevTab()
 		case tea.KeyCtrlW:
-			m.removeActiveChat()
-			m.viewport, tiCmd = m.viewport.Update(msg)
+			if len(m.chats) > 1 {
+				m.removeActiveChat()
+			}
 		case tea.KeyCtrlO:
 			go func() {
 				chat := m.getActiveChat()
 				c := twitch.New(http.DefaultClient)
-				if err := c.OpenStreamInMediaPlayer(chat.channelName); err != nil {
+				if err := c.OpenStreamInMediaPlayer(chat.channel); err != nil {
 					m.msgChan <- errMsg{err: err}
 
 				}
 			}()
+		case tea.KeyShiftRight:
+			m.width = (m.width / 3) * 2
+			command.Open(m.width/3, m.height)
 		}
+
 	case errMsg:
 		m.err = msg.err
 		return m, m.waitForMsg()
@@ -196,54 +187,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addRoomToChat(chanMsg)
 		case types.ChatMessage:
 			chat := m.getChat(chanMsg.Metadata.RoomID)
-			m.appendMessage(chat, FormatChatMessage(chanMsg, m.width))
+			if chat != nil {
+				m.appendMessage(chat, FormatChatMessage(chanMsg, m.width))
+			}
 		case types.SubNotice:
 			chat := m.getChat(chanMsg.Metadata.RoomID)
-			m.appendMessage(chat, FormatSubMessage(chanMsg, m.width))
+			if chat != nil {
+				m.appendMessage(chat, FormatSubMessage(chanMsg, m.width))
+			}
 		case types.Notice:
 			chat := m.getChat(chanMsg.DisplayName)
-			m.appendMessage(chat, chanMsg.SystemMsg)
+			if chat != nil {
+				m.appendMessage(chat, chanMsg.SystemMsg)
+			}
 		}
 		return m, m.waitForMsg()
 	}
 	return m, tea.Batch(tiCmd)
 }
 
-func (m *Model) removeActiveChat() {
-	if len(*m.chats) == 1 {
-		return
-	}
-	chat := m.getActiveChat()
-	m.ws.LeaveChannel(chat.channelName)
-	// ?
-	chats := []Chat{}
-	for i := range *m.chats {
-		c := &(*m.chats)[i]
-		if !c.IsActive {
-			chats = append(chats, *c)
-		} else {
-			if i == 0 {
-				nextC := &(*m.chats)[i+1]
-				nextC.IsActive = true
-				chats = append(chats, *nextC)
-				m.updateViewport(nextC)
-			} else {
-				chats[i-1].IsActive = true
-				m.updateViewport(&chats[i-1])
-			}
-		}
-	}
-
-	newActiveChannels := []string{}
-	for _, channel := range viper.GetStringSlice("activeChannels") {
-		if channel != chat.channelName {
-			newActiveChannels = append(newActiveChannels, chat.channelName)
-		}
-	}
-	fmt.Println("DKSOAKO", newActiveChannels)
-	viper.Set("activeChannels", newActiveChannels)
-
-	m.chats = &chats
+func (m Model) View() string {
+	var b strings.Builder
+	b.WriteString(m.labelBox.
+		SetWidth(m.viewport.Width).
+		RenderBoxWithTabs(m.chats, m.viewport.View()))
+	b.WriteString(fmt.Sprintf("%s ", m.renderRoom()))
+	b.WriteString(m.textinput.View())
+	b.WriteString(m.renderError())
+	return b.String()
 }
 
 func (m *Model) createNewMessage(chat *Chat) types.ChatMessage {
@@ -264,19 +235,19 @@ func (m *Model) createNewMessage(chat *Chat) types.ChatMessage {
 	return newMessage
 }
 
-// func renderInfo() string {
-// 	return lipgloss.NewStyle().Faint(true).Render("\n\n[Tab]-next [Shfit+Tab]-prev [Ctrl+w]-Close chat [Ctrl+o]-Open stream")
-// }
-
-func (m Model) View() string {
-	var b strings.Builder
-	b.WriteString(m.labelBox.
-		SetWidth(m.viewport.Width).
-		RenderBoxWithTabs(m.chats, m.viewport.View()))
-	b.WriteString(fmt.Sprintf("%s ", m.renderRoom()))
-	b.WriteString(m.textinput.View())
-	b.WriteString(m.renderError())
-	return b.String()
+func (m Model) waitForMsg() tea.Cmd {
+	return func() tea.Msg {
+		newMsg := <-m.msgChan
+		switch newMsg.(type) {
+		case errMsg:
+			time.AfterFunc(time.Second*2, func() {
+				m.msgChan <- errMsg{err: nil}
+			})
+			return newMsg
+		default:
+			return NewChannelMessage{Data: newMsg}
+		}
+	}
 }
 
 func (m *Model) renderError() string {
@@ -297,9 +268,9 @@ func (m *Model) sendMessage() {
 	if !strings.HasPrefix(input, "/") {
 		chat := m.getActiveChat()
 		newMessage := m.createNewMessage(chat)
-		m.ws.FormatIRCMsgAndSend("PRIVMSG", chat.channelName, input)
+		m.ws.FormatIRCMsgAndSend("PRIVMSG", chat.channel, input)
 		chat.messages = append(chat.messages, FormatChatMessage(newMessage, m.width))
-		m.updateViewport(chat)
+		m.updateChatViewport(chat)
 	} else {
 		m.handleInputCommand(input)
 	}
@@ -313,21 +284,67 @@ func (m *Model) handleInputCommand(cmd string) {
 	}
 	switch parts[0] {
 	case "/add":
-		*m.chats = append(*m.chats, createNewChat(parts[1], false))
-		m.ws.ConnectToChannel(parts[1])
+		newChat := createNewChat(parts[1], false)
+		m.addChat(newChat)
 	default:
 		m.msgChan <- errMsg{err: fmt.Errorf("invalid command: %s", cmd)}
 	}
 }
 
+func (m *Model) addChat(newChat Chat) {
+	m.chats = append(m.chats, newChat)
+	m.ws.ConnectToChannel(newChat.channel)
+	newChannels := []string{}
+	for _, c := range m.chats {
+		newChannels = append(newChannels, c.channel)
+	}
+	viper.Set("activeChannels", newChannels)
+	viper.WriteConfig()
+}
+
 func (m *Model) addRoomToChat(chanMsg types.Room) {
-	for i := range *m.chats {
-		c := &(*m.chats)[i]
-		if c.room.RoomID == "" {
+	for i := range m.chats {
+		c := &(m.chats)[i]
+		if c.channel == chanMsg.Metadata.Channel {
 			c.room = chanMsg
 			break
 		}
 	}
+}
+
+func (m *Model) removeActiveChat() {
+	var activeChan string
+	chats := []Chat{}
+	newActiveId := 0
+
+	for i, c := range m.chats {
+		if !c.IsActive {
+			chats = append(chats, c)
+		} else {
+			activeChan = c.channel
+			m.ws.LeaveChannel(c.channel)
+			newActiveId = i
+			if i == len(m.chats)-1 {
+				newActiveId--
+			}
+		}
+	}
+	chats[newActiveId].IsActive = true
+	newActiveC := chats[newActiveId]
+	m.updateChatViewport(&newActiveC)
+
+	// remove from config...
+	activeChans := viper.GetStringSlice("activeChannels")
+	newActiveChannels := []string{}
+	for _, ch := range activeChans {
+		if ch != activeChan {
+			newActiveChannels = append(newActiveChannels, ch)
+		}
+	}
+	viper.Set("activeChannels", newActiveChannels)
+	viper.WriteConfig()
+
+	m.chats = chats
 }
 
 func (m *Model) appendMessage(chat *Chat, message string) {
@@ -336,58 +353,56 @@ func (m *Model) appendMessage(chat *Chat, message string) {
 	}
 	chat.messages = append(chat.messages, message)
 	if chat.IsActive {
-		m.updateViewport(chat)
+		m.updateChatViewport(chat)
 	}
 }
 
-func (m *Model) updateViewport(chat *Chat) {
+func (m *Model) updateChatViewport(chat *Chat) {
 	m.viewport.SetContent(strings.Join(chat.messages, "\n"))
 	m.viewport.GotoBottom()
 }
 
 func (m *Model) nextTab() {
 	var activeIndex int
-	for i, chat := range *m.chats {
+	for i, chat := range m.chats {
 		if chat.IsActive {
 			activeIndex = i
 			break
 		}
 	}
-	(*m.chats)[activeIndex].IsActive = false
-	nextIndex := (activeIndex + 1) % len(*m.chats)
-	(*m.chats)[nextIndex].IsActive = true
-	m.updateViewport(&(*m.chats)[nextIndex])
+	(m.chats)[activeIndex].IsActive = false
+	nextIndex := (activeIndex + 1) % len(m.chats)
+	(m.chats)[nextIndex].IsActive = true
+	m.updateChatViewport(&(m.chats)[nextIndex])
 }
 
 func (m *Model) prevTab() {
 	var activeIndex int
-	for i, c := range *m.chats {
+	for i, c := range m.chats {
 		if c.IsActive {
 			activeIndex = i
 			break
 		}
 	}
-	(*m.chats)[activeIndex].IsActive = false
-	prevIndex := (activeIndex - 1 + len(*m.chats)) % len(*m.chats)
-	(*m.chats)[prevIndex].IsActive = true
-	m.updateViewport(&(*m.chats)[prevIndex])
+	(m.chats)[activeIndex].IsActive = false
+	prevIndex := (activeIndex - 1 + len(m.chats)) % len(m.chats)
+	(m.chats)[prevIndex].IsActive = true
+	m.updateChatViewport(&(m.chats)[prevIndex])
 }
 
 func (m Model) getActiveChat() *Chat {
-	for i := range *m.chats {
-		if (*m.chats)[i].IsActive {
-			c := &(*m.chats)[i]
-			return c
+	for i := range m.chats {
+		if (m.chats)[i].IsActive {
+			return &(m.chats[i])
 		}
 	}
 	return nil
 }
 
 func (m Model) getChat(roomID string) *Chat {
-	for i := range *m.chats {
-		if (*m.chats)[i].room.RoomID == roomID || (*m.chats)[i].channelName == roomID {
-			c := &(*m.chats)[i]
-			return c
+	for i := range m.chats {
+		if (m.chats)[i].room.RoomID == roomID || (m.chats)[i].channel == roomID {
+			return &(m.chats[i])
 		}
 	}
 	return nil

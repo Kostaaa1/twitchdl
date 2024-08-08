@@ -42,7 +42,7 @@ func (b *BoxWithLabel) SetWidth(width int) *BoxWithLabel {
 	return b
 }
 
-func (b *BoxWithLabel) renderLabel(chat *Chat, id int) string {
+func (b *BoxWithLabel) renderLabel(chat Chat, id int) string {
 	border := lipgloss.Border{
 		Top:         "─",
 		Left:        "│",
@@ -81,10 +81,10 @@ func (b *BoxWithLabel) renderLabel(chat *Chat, id int) string {
 	if chat.IsActive {
 		l = l.Foreground(lipgloss.Color(b.color))
 	}
-	return l.Render(fmt.Sprintf(" %s ", chat.channelName))
+	return l.Render(fmt.Sprintf(" %s ", chat.channel))
 }
 
-func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
+func (b *BoxWithLabel) RenderBoxWithTabs(chats []Chat, content string) string {
 	var (
 		topBorderStyler func(strs ...string) string = lipgloss.NewStyle().
 				Foreground(b.BoxStyle.GetBorderTopForeground()).
@@ -101,8 +101,8 @@ func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
 	borderWidth := b.BoxStyle.GetHorizontalBorderSize()
 
 	var stack []string
-	for i := range *chats {
-		stack = append(stack, b.renderLabel(&(*chats)[i], i))
+	for i := range chats {
+		stack = append(stack, b.renderLabel(chats[i], i))
 	}
 	labels := lipgloss.JoinHorizontal(lipgloss.Position(0), stack...)
 
@@ -116,7 +116,7 @@ func (b *BoxWithLabel) RenderBoxWithTabs(chats *[]Chat, content string) string {
 	return top + "\n" + bottom + "\n"
 }
 
-func (b *BoxWithLabel) RenderBox(label, content string) string {
+func (b *BoxWithLabel) renderBox(label, content string) string {
 	var (
 		topBorderStyler func(strs ...string) string = lipgloss.NewStyle().
 				Foreground(b.BoxStyle.GetBorderTopForeground()).
@@ -214,10 +214,9 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 	if !message.Metadata.IsFirstMessage {
 		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s]", message.Metadata.Timestamp))
 		return fmt.Sprintf("%s%s", timestamp, msg)
-		// return formatMessageTimestamp(timestamp, msg)
 	} else {
 		box := NewBoxWithLabel(firstMsgColor)
-		return box.RenderBox(" First message ", msg)
+		return box.renderBox(" First message ", msg)
 	}
 }
 
@@ -235,7 +234,7 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 	box := NewBoxWithLabel(subColor)
 	msg = wordwrap.String(msg, width-20)
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color(subColor)).Render(fmt.Sprintf(" %s ", utils.Capitalize(message.SubPlan)))
-	return box.RenderBox(label, msg)
+	return box.renderBox(label, msg)
 }
 
 func FormatRaidMessage(message types.RaidNotice, width int) string {
@@ -252,7 +251,7 @@ func FormatRaidMessage(message types.RaidNotice, width int) string {
 	box := NewBoxWithLabel(raidColor)
 	msg = wordwrap.String(msg, width-20)
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color(raidColor)).Render("Raid")
-	return box.RenderBox(label, msg)
+	return box.renderBox(label, msg)
 }
 
 // func FormatGiftSubMessage(message types.SubGiftMessage, width int) string {
