@@ -3,6 +3,7 @@ package chat
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/twitch"
@@ -33,6 +34,7 @@ type Model struct {
 	showCommands        bool
 	commandsWindowWidth int
 	err                 error
+	mu                  *sync.Mutex
 }
 
 type errMsg struct {
@@ -44,7 +46,7 @@ func (e errMsg) Error() string {
 }
 
 func Open() {
-	if _, err := tea.NewProgram(initChatModel(), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(initChatModel()).Run(); err != nil {
 		panic(err)
 	}
 }
@@ -252,7 +254,7 @@ func (m Model) waitForMsg() tea.Cmd {
 func (m *Model) renderError() string {
 	var b strings.Builder
 	if m.err != nil {
-		b.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("\n\n[Error] - %s", m.err)))
+		b.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("\n\n[NOTIFY] - %s", m.err)))
 	} else {
 		b.WriteString("")
 	}
@@ -283,8 +285,13 @@ func (m *Model) handleInputCommand(cmd string) {
 	}
 	switch parts[0] {
 	case "/add":
-		newChat := createNewChat(parts[1], false)
-		m.addChat(newChat)
+		go func() {
+			if _, err := m.twitch.GetUserInfo(parts[1]); err != nil {
+				m.msgChan <- errMsg{err: err}
+				return
+			}
+		}()
+		m.addChat(parts[1])
 	case "/info":
 		fmt.Println(parts[1])
 	default:
@@ -292,7 +299,8 @@ func (m *Model) handleInputCommand(cmd string) {
 	}
 }
 
-func (m *Model) addChat(newChat types.Chat) {
+func (m *Model) addChat(channelName string) {
+	newChat := createNewChat(channelName, false)
 	m.chats = append(m.chats, newChat)
 	m.ws.ConnectToChannel(newChat.Channel)
 	newChannels := []string{}

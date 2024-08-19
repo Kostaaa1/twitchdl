@@ -242,6 +242,11 @@ func (c *Client) GetUserInfo(loginName string) (*types.UserData, error) {
 	if err := json.Unmarshal(b, &user); err != nil {
 		return nil, err
 	}
+
+	if len(user.Data) == 0 {
+		return nil, fmt.Errorf("the channel %s does not exist", loginName)
+	}
+
 	return &user.Data[0], nil
 }
 

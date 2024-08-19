@@ -31,10 +31,11 @@ func prepareCommands(w int) string {
 		{cmdType: "key", cmd: "ctrl+o", help: "opens livestream in media player"},
 		{cmdType: "key", cmd: "ctrl+i", help: "opens window with followed livestreams"},
 
+		{cmdType: "input", cmd: "/follow", help: "follows the active channel"},
 		{cmdType: "input", cmd: "/add [channel]", help: "adds new chat tab"},
-		{cmdType: "input", cmd: "/info [channel]", help: "info channel"},
-		{cmdType: "input", cmd: "/record [stream url]", help: "record the livestream"},
-		{cmdType: "input", cmd: "/download [vod/clip url]", help: "download the twitch clip or vod"},
+		// {cmdType: "input", cmd: "/info [channel]", help: "info channel"},
+		// {cmdType: "input", cmd: "/record [stream url]", help: "record the livestream"},
+		// {cmdType: "input", cmd: "/download [vod/clip url]", help: "download the twitch clip or vod"},
 	}
 
 	var b strings.Builder
@@ -42,7 +43,7 @@ func prepareCommands(w int) string {
 		if i == 0 {
 			b.WriteString("Key commands:\n\n")
 		}
-		if i == 5 {
+		if i == 8 {
 			b.WriteString("\nInput commands:\n\n")
 		}
 		b.WriteString(fmt.Sprintf("%d) %s - %s\n", i+1, cmd.cmd, cmd.help))
