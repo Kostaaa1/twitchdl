@@ -73,7 +73,7 @@ type Notice struct {
 	SystemMsg   string
 }
 
-type Config struct {
+type JsonConfig struct {
 	ID              string    `json:"id"`
 	Login           string    `json:"login"`
 	DisplayName     string    `json:"displayName"`

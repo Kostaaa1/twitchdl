@@ -11,17 +11,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
-const (
-	gqlURL      = "https://gql.twitch.tv/gql"
-	gqlClientID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
-	usherURL    = "https://usher.ttvnw.net"
-	helixURL    = "https://api.twitch.tv/helix"
-)
-
 type Client struct {
+	config      types.JsonConfig
 	client      *http.Client
 	gqlURL      string
 	helixURL    string
@@ -94,13 +90,19 @@ func (c *Client) ID(URL string) (string, VideoType, error) {
 	return "", 0, fmt.Errorf("failed to get the information from the URL")
 }
 
-func New(client *http.Client) Client {
-	return Client{
-		client:      client,
-		gqlURL:      gqlURL,
-		gqlClientID: gqlClientID,
-		usherURL:    usherURL,
-		helixURL:    helixURL,
+func New() *Client {
+	cfg, err := utils.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	return &Client{
+		client:      http.DefaultClient,
+		config:      *cfg,
+		gqlURL:      "https://gql.twitch.tv/gql",
+		gqlClientID: "kimne78kx3ncx6brgo4mv6wki5h1ko",
+		usherURL:    "https://usher.ttvnw.net",
+		helixURL:    "https://api.twitch.tv/helix",
 		mu:          sync.Mutex{},
 	}
 }
@@ -139,7 +141,6 @@ func (c *Client) NewGetRequest(URL string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer req.Body.Close()
 	return req, nil
 }
 
@@ -209,4 +210,119 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 		return err
 	}
 	return nil
+}
+
+func (c *Client) GetToken() string {
+	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
+}
+
+// This should be part of helix
+func (c *Client) GetUserInfo(loginName string) (*types.UserData, error) {
+	u := fmt.Sprintf("%s/users?login=%s", c.helixURL, loginName)
+	req, err := c.NewGetRequest(u)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Client-Id", c.config.Creds.ClientID)
+	req.Header.Set("Authorization", c.GetToken())
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	type data struct {
+		Data []types.UserData `json:"data"`
+	}
+	var user data
+	if err := json.Unmarshal(b, &user); err != nil {
+		return nil, err
+	}
+	return &user.Data[0], nil
+}
+
+func (c *Client) GetChannelInfo(broadcasterID string) (*types.ChannelData, error) {
+	u := fmt.Sprintf("%s/channels?broadcaster_id=%s", c.helixURL, broadcasterID)
+	req, err := c.NewGetRequest(u)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Client-Id", c.config.Creds.ClientID)
+	req.Header.Set("Authorization", c.GetToken())
+
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	type data struct {
+		Data []types.ChannelData `json:"data"`
+	}
+	var channel data
+
+	if err := json.Unmarshal(b, &channel); err != nil {
+		return nil, err
+	}
+	return &channel.Data[0], nil
+}
+
+func (c *Client) GetFollowedStreams(id string) (*types.Streams, error) {
+	u := fmt.Sprintf("%s/streams/followed?user_id=%s", c.helixURL, id)
+	req, err := c.NewGetRequest(u)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Client-Id", c.config.Creds.ClientID)
+	req.Header.Set("Authorization", c.GetToken())
+
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var streams types.Streams
+	if err := json.Unmarshal(b, &streams); err != nil {
+		return nil, err
+	}
+	return &streams, nil
+}
+
+func (c *Client) GetStream(userId string) (*types.Streams, error) {
+	u := fmt.Sprintf("%s/streams?user_id=%s", c.helixURL, userId)
+	req, err := c.NewGetRequest(u)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Client-Id", c.config.Creds.ClientID)
+	req.Header.Set("Authorization", c.GetToken())
+
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var streams types.Streams
+	if err := json.Unmarshal(b, &streams); err != nil {
+		return nil, err
+	}
+	return &streams, nil
 }

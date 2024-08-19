@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/spf13/viper"
 )
 
 func isFileReal(filePath string) bool {
@@ -117,4 +120,18 @@ func ParseTimestamp(v string) string {
 	t := time.Unix(seconds, 0)
 	formatted := t.Format("03:04")
 	return formatted
+}
+
+// config.json
+func GetConfig() (*types.JsonConfig, error) {
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.AddConfigPath(".")
+	err := viper.ReadInConfig()
+	if err != nil {
+		return nil, err
+	}
+	var data types.JsonConfig
+	viper.Unmarshal(&data)
+	return &data, nil
 }

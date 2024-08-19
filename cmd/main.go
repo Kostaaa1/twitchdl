@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -25,17 +24,11 @@ type Config struct {
 type Client struct {
 	logger *log.Logger
 	config *Config
-	// db     *bolt.DB
 }
 
 func createNewClient() *Client {
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	// newDb, err := db.SetupDB()
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
 	return &Client{
-		// db:     newDb,
 		logger: logger,
 		config: &Config{},
 	}
@@ -87,11 +80,12 @@ func main() {
 
 func (cfg *Config) run() error {
 	output := cfg.output
-	api := twitch.New(http.DefaultClient)
+	api := twitch.New()
 	id, vType, err := api.ID(cfg.inputURL)
 	if err != nil {
 		return err
 	}
+
 	// mediaName, _ := api.MediaName(id, vType)
 	// finalDest := file.CreatePathname(output, mediaName)
 	bar := progressbar.DefaultBytes(-1, "Downloading:")

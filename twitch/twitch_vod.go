@@ -186,10 +186,6 @@ func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// m3u8, err := c.readResponseBody(resp)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	return m3u8, nil
 }
 

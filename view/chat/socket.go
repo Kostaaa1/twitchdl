@@ -42,7 +42,7 @@ func (c *WebSocketClient) ConnectToChannel(channel string) {
 	c.SendMessage([]byte(join))
 }
 
-func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan interface{}, channels []string) {
+func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan interface{}, channels []string) error {
 	c.SendMessage([]byte("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands"))
 	pass := fmt.Sprintf("PASS oauth:%s", accessToken)
 	c.SendMessage([]byte(pass))
@@ -51,14 +51,14 @@ func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan int
 	join := fmt.Sprintf("JOIN #%s", strings.Join(channels, ",#"))
 	c.SendMessage([]byte(join))
 
-	pattern := `\b(PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
+	pattern := `\b(PING|PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
 	re := regexp.MustCompile(pattern)
 
 	for {
 		msgType, msg, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Printf("Error reading WebSocket message: %v", err)
-			return
+			return err
 		}
 		if msgType == websocket.TextMessage {
 			rawIRCMessage := strings.TrimSpace(string(msg))
@@ -74,6 +74,8 @@ func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan int
 					msgChan <- parsed
 				case "USERNOTICE":
 					parseUSERNOTICE(rawIRCMessage, msgChan)
+				case "PING":
+					c.SendMessage([]byte("PONG :tmi.twitch.tv"))
 				case "NOTICE":
 					parsed := parseNOTICE(rawIRCMessage)
 					if parsed.MsgID == "msg_banned" {
