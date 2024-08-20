@@ -46,7 +46,7 @@ func (e errMsg) Error() string {
 }
 
 func Open() {
-	if _, err := tea.NewProgram(initChatModel()).Run(); err != nil {
+	if _, err := tea.NewProgram(initChatModel(), tea.WithAltScreen()).Run(); err != nil {
 		panic(err)
 	}
 }
@@ -69,7 +69,6 @@ func initChatModel() tea.Model {
 	}
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
-
 	t := textinput.New()
 	t.CharLimit = 500
 	t.Placeholder = "Send a message"
@@ -236,12 +235,17 @@ func (m *Model) createNewMessage(chat *types.Chat) types.ChatMessage {
 	return newMessage
 }
 
-func (m Model) waitForMsg() tea.Cmd {
+var errTimer *time.Timer
+
+func (m *Model) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
 		newMsg := <-m.msgChan
 		switch newMsg.(type) {
 		case errMsg:
-			time.AfterFunc(time.Second*3, func() {
+			if errTimer != nil {
+				errTimer.Stop()
+			}
+			errTimer = time.AfterFunc(time.Second*2, func() {
 				m.msgChan <- errMsg{err: nil}
 			})
 			return newMsg
@@ -285,12 +289,6 @@ func (m *Model) handleInputCommand(cmd string) {
 	}
 	switch parts[0] {
 	case "/add":
-		go func() {
-			if _, err := m.twitch.GetUserInfo(parts[1]); err != nil {
-				m.msgChan <- errMsg{err: err}
-				return
-			}
-		}()
 		m.addChat(parts[1])
 	case "/info":
 		fmt.Println(parts[1])
