@@ -54,14 +54,6 @@ func (c *WebSocketClient) Connect(accessToken, username string, msgChan chan int
 	pattern := `\b(PING|PRIVMSG|ROOMSTATE|USERNOTICE|USERSTATE|NOTICE|GLOBALUSERSTATE|CLEARMSG|CLEARCHAT)\b`
 	re := regexp.MustCompile(pattern)
 
-	// go func() {
-	// 	ticker := time.NewTicker(30 * time.Second)
-	// 	defer ticker.Stop()
-	// 	for range ticker.C {
-	// 		fmt.Println("TEST")
-	// 	}
-	// }()
-
 	for {
 		msgType, msg, err := c.Conn.ReadMessage()
 		if err != nil {

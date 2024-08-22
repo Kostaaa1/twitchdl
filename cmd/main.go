@@ -16,8 +16,6 @@ type Config struct {
 	quality    string
 	start, end time.Duration
 	output     string
-	printPaths bool
-	jspath     string
 	overwrite  bool
 }
 
@@ -36,21 +34,19 @@ func createNewClient() *Client {
 
 func main() {
 	client := createNewClient()
+	outpath := "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
 	// paths, err := db.GetBucketValues(client.db)
 	// if err != nil {
 	// 	client.logger.Fatal(err)
 	// }
-	outpath := "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
 
 	var cfg Config
-	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...},https://twitch.tv/{...}")
+	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}, https://twitch.tv/{...}")
 	flag.StringVar(&cfg.quality, "quality", "best", "[best 1080 720 480 360 160 worst]. Example: -quality 1080p (optional)")
 	flag.DurationVar(&cfg.start, "start", time.Duration(0), "The start of the VOD subset. It only works with VODs and it needs to be in this format: '1h30m0s' (optional)")
 	flag.DurationVar(&cfg.end, "end", time.Duration(0), "The end of the VOD subset. It only works with VODs and it needs to be in this format: '1h33m0s' (optional)")
 	flag.BoolVar(&cfg.overwrite, "overwrite", false, "Overwrite the database paths with provided paths.")
-	flag.BoolVar(&cfg.printPaths, "printPaths", false, "Print the provided paths. If printPaths=true, other options wont execute.")
 	flag.StringVar(&cfg.output, "output", outpath, "Path to the downloaded video.")
-	// flag.StringVar(&cfg.jspath, "jspath", paths.Jspath, "Path to the puppeteer js file.")
 	flag.Parse()
 
 	if cfg.inputURL == "" {
@@ -85,7 +81,6 @@ func (cfg *Config) run() error {
 	if err != nil {
 		return err
 	}
-
 	// mediaName, _ := api.MediaName(id, vType)
 	// finalDest := file.CreatePathname(output, mediaName)
 	bar := progressbar.DefaultBytes(-1, "Downloading:")

@@ -11,15 +11,15 @@ import (
 type BoxWithLabel struct {
 	BoxStyle   lipgloss.Style
 	LabelStyle lipgloss.Style
+	color      lipgloss.Color
 	width      int
-	color      string
 }
 
-func NewBoxWithLabel(color string) BoxWithLabel {
+func NewBoxWithLabel(color lipgloss.Color) BoxWithLabel {
 	return BoxWithLabel{
 		BoxStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(color)).
+			BorderForeground(color).
 			Padding(0),
 		LabelStyle: lipgloss.
 			NewStyle().
@@ -64,13 +64,13 @@ func (b *BoxWithLabel) renderLabel(chat types.Chat, id int) string {
 	}
 
 	l := b.LabelStyle.Border(border).
-		BorderForeground(lipgloss.Color(b.color)).
+		BorderForeground(b.color).
 		Bold(true).
 		Italic(true).
 		Padding(0)
 
 	if chat.IsActive {
-		l = l.Foreground(lipgloss.Color(b.color))
+		l = l.Foreground(b.color)
 	}
 	return l.Render(fmt.Sprintf(" %s ", chat.Channel))
 }

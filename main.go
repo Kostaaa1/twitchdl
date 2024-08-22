@@ -1,7 +1,8 @@
 package main
 
-import "github.com/Kostaaa1/twitchdl/view/chat"
+import "github.com/Kostaaa1/twitchdl/view/prompts"
 
 func main() {
-	chat.Open()
+	// root.Open()
+	prompts.Open()
 }

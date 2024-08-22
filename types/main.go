@@ -89,23 +89,21 @@ type JsonConfig struct {
 		ClientID     string `json:"clientId"`
 		ClientSecret string `json:"clientSecret"`
 	} `json:"creds"`
-	Config struct {
-		ShowTimestamps bool `json:"showTimestamps"`
-		Colors         struct {
-			MainWindowBackground string `json:"mainWindowBackground"`
-			Border               string `json:"border"`
-			Timestamp            string `json:"timestamp"`
-			Messages             struct {
-				Original string `json:"original"`
-				Raid     string `json:"raid"`
-				Sub      string `json:"sub"`
-				First    string `json:"first"`
-				Subgif   string `json:"subgif"`
-			} `json:"messages:"`
-		} `json:"colors"`
-		Paths struct {
-			ChromePath   string `json:"chromePath"`
-			DownloadPath string `json:"downloadPath"`
-		} `json:"paths"`
-	} `json:"config"`
+	ShowTimestamps bool `json:"showTimestamps"`
+	Colors         struct {
+		MainWindowBackground string `json:"mainWindowBackground"`
+		Border               string `json:"border"`
+		Timestamp            string `json:"timestamp"`
+		Messages             struct {
+			Original string `json:"original"`
+			Raid     string `json:"raid"`
+			Sub      string `json:"sub"`
+			First    string `json:"first"`
+			Subgif   string `json:"subgif"`
+		} `json:"messages:"`
+	} `json:"colors"`
+	Paths struct {
+		ChromePath string `json:"chromePath"`
+		OutputPath string `json:"outputPath"`
+	} `json:"paths"`
 }

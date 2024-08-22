@@ -100,7 +100,7 @@ func initChatModel() tea.Model {
 		width:               0,
 		height:              0,
 		msgChan:             msgChan,
-		labelBox:            components.NewBoxWithLabel("#8839ef"),
+		labelBox:            components.NewBoxWithLabel("63"),
 		viewport:            vp,
 		textinput:           t,
 		showCommands:        false,
@@ -139,6 +139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
+			m.ws.Conn.Close()
 			viper.WriteConfig()
 			return m, tea.Quit
 		case tea.KeyEnter:
