@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Kostaaa1/twitchdl/view/chat"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -43,7 +42,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.HasPrefix(item, "Record") {
 			}
 			if strings.HasPrefix(item, "Chats") {
-				chat.Open()
+				// chat.Open()
 			}
 			return m, tea.Quit
 		}

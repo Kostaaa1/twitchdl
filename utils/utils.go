@@ -32,10 +32,11 @@ func getFullURL(u string) string {
 		Host:   parsed.Host,
 		Path:   v,
 	}
+
 	return fullURL.String()
 }
 
-func ConstructURL(urls []string, quality string) string {
+func ExtractURL(urls []string, quality string) string {
 	if quality == "best" {
 		return getFullURL(urls[0])
 	}
@@ -88,8 +89,7 @@ func CreatePathname(dstPath, filename string) string {
 	return filePath
 }
 
-/// random funcs:
-
+// / random funcs:
 func GetRandHex() string {
 	var rgb struct {
 		red   int

@@ -1,72 +1,59 @@
 package prompts
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Kostaaa1/twitchdl/twitch"
+	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/schollz/progressbar/v3"
 )
 
-type NewChannelMessage struct {
-	Data interface{}
-}
-
 type model struct {
-	twitch    *twitch.Client
-	viewport  viewport.Model
-	textinput textinput.Model
-
-	// ws                  *WebSocketClient
-	// labelBox components.BoxWithLabel
-	// width               int
-	// height              int
-	// msgChan             chan interface{}
-	// chats               []types.Chat
-	// showCommands        bool
-	// commandsWindowWidth int
-	// err                 error
-	// mu                  *sync.Mutex
-
+	viewport       viewport.Model
+	textinput      textinput.Model
+	isEnterPressed bool
+	twitch         *twitch.Client
+	cfg            *types.JsonConfig
+	promptedURL    string
+	quality        twitch.VideoType
 }
 
-func Open() {
-	if _, err := tea.NewProgram(initChatModel(), tea.WithAltScreen()).Run(); err != nil {
-		panic(err)
-	}
-}
+var (
+	mainColor = lipgloss.Color("63")
+	head      = fmt.Sprintf("%s\n\n", lipgloss.NewStyle().Background(mainColor).Render(" Twitch "))
+)
 
-func initChatModel() tea.Model {
+func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
 
 	t := textinput.New()
 	t.CharLimit = 500
-	t.Placeholder = " url"
-	t.Prompt = "Enter clip or video URL: "
-	t.Cursor.Blink = true
+	t.Placeholder = ""
+	t.Prompt = "Enter the Twitch link: "
+	t.TextStyle = lipgloss.NewStyle().Faint(true)
 	t.Focus()
 
-	return model{
-		twitch:    twitch.New(),
-		viewport:  vp,
-		textinput: t,
-		// ws:                  ws,
-		// chats:               chats,
-		// err:                 nil,
-		// width:               0,
-		// height:              0,
-		// msgChan:             msgChan,
-		// labelBox:            components.NewBoxWithLabel("63"),
-		// showCommands:        false,
-		// commandsWindowWidth: 32,
+	m := model{
+		cfg:            cfg,
+		twitch:         twitch,
+		viewport:       vp,
+		textinput:      t,
+		isEnterPressed: false,
+	}
+
+	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+		panic(err)
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.ShowCursor
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -77,31 +64,77 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		w := msg.Width - 2
-		h := msg.Height - 8
+		w := msg.Width
+		h := msg.Height
 
 		m.viewport.Width = w
 		m.viewport.Height = h
 		m.viewport.Style = lipgloss.
 			NewStyle().
 			Width(m.viewport.Width).
-			Height(m.viewport.Height)
+			Height(m.viewport.Height).
+			Border(lipgloss.DoubleBorder()).
+			Margin(1, 2).
+			Padding(1, 2).
+			BorderForeground(mainColor)
 
-		// if m.chats[0].IsActive {
-		// 	m.updateChatViewport(&m.chats[0])
-		// }
+		m.viewport.SetContent(head + m.textinput.View())
 
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return m, tea.Quit
+		case tea.KeyEnter:
+			if m.isEnterPressed || m.textinput.Value() == "" {
+				return m, tea.Batch(tiCmd)
+			}
+			m.handlePrompt()
+
+		default:
+			if !m.isEnterPressed {
+				m.viewport.SetContent(head + m.textinput.View())
+			}
 		}
 	}
 	return m, tea.Batch(tiCmd)
 }
 
+func (m model) handlePrompt() (tea.Model, tea.Cmd) {
+	msg := fmt.Sprintf("\nTwitch URL: %s\n", m.textinput.Value())
+
+	bar := progressbar.DefaultBytes(-1, "Downloading: ")
+	defer bar.Exit()
+
+	if m.promptedURL != "" {
+		m.promptedURL = m.textinput.Value()
+	}
+
+	// if m.quality != 3 {
+	// 	id, vType, err := m.twitch.ID(m.promptedURL)
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 		return m, nil
+	// 	}
+	// 	if err := m.twitch.Downloader(id, vType, m.cfg.Paths.OutputPath, "best", 0, 0, bar); err != nil {
+	// 		fmt.Println(err)
+	// 		return m, nil
+	// 	}
+	// }
+
+	v := lipgloss.
+		NewStyle().
+		Faint(true).
+		Render(msg)
+	m.viewport.SetContent(head + m.textinput.View() + v + bar.String())
+	m.isEnterPressed = true
+	m.textinput.Cursor.Blur()
+	m.textinput.Reset()
+
+	return m, nil
+}
+
 func (m model) View() string {
 	var b strings.Builder
-	b.WriteString(m.textinput.View())
+	b.WriteString(m.viewport.View())
 	return b.String()
 }

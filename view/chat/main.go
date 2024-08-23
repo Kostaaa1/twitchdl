@@ -45,28 +45,7 @@ func (e errMsg) Error() string {
 	return e.err.Error()
 }
 
-func Open() {
-	if _, err := tea.NewProgram(initChatModel(), tea.WithAltScreen()).Run(); err != nil {
-		panic(err)
-	}
-}
-
-func createNewChat(channel string, isActive bool) types.Chat {
-	return types.Chat{
-		IsActive: isActive,
-		Messages: []string{
-			lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", channel)),
-		},
-		Room:    types.Room{},
-		Channel: channel,
-	}
-}
-
-func initChatModel() tea.Model {
-	cfg, err := utils.GetConfig()
-	if err != nil {
-		panic(err)
-	}
+func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	vp := viewport.New(0, 0)
 	vp.SetContent("")
 	t := textinput.New()
@@ -83,7 +62,7 @@ func initChatModel() tea.Model {
 
 	go func() {
 		if err := ws.Connect(cfg.Creds.AccessToken, cfg.Creds.ClientID, msgChan, cfg.ActiveChannels); err != nil {
-			fmt.Println("KODSKAODKOSAKDOKSAOK ERROIR :: ", err)
+			fmt.Println("Connection error: ", err)
 		}
 	}()
 
@@ -92,8 +71,8 @@ func initChatModel() tea.Model {
 		chats = append(chats, createNewChat(channel, i == 0))
 	}
 
-	return Model{
-		twitch:              twitch.New(),
+	m := Model{
+		twitch:              twitch,
 		ws:                  ws,
 		chats:               chats,
 		err:                 nil,
@@ -105,6 +84,21 @@ func initChatModel() tea.Model {
 		textinput:           t,
 		showCommands:        false,
 		commandsWindowWidth: 32,
+	}
+
+	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+		panic(err)
+	}
+}
+
+func createNewChat(channel string, isActive bool) types.Chat {
+	return types.Chat{
+		IsActive: isActive,
+		Messages: []string{
+			lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Welcome to %s channel", channel)),
+		},
+		Room:    types.Room{},
+		Channel: channel,
 	}
 }
 
@@ -198,6 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.waitForMsg()
 	}
+
 	return m, tea.Batch(tiCmd)
 }
 

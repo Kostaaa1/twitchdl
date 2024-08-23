@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/Kostaaa1/twitchdl/utils"
@@ -36,33 +37,23 @@ const (
 
 // change the name
 func (c *Client) MediaName(id string, vType VideoType) (string, error) {
-	var name string
 	switch vType {
 	case TypeClip:
 		clip, err := c.ClipMetadata(id)
 		if err != nil {
 			return "", err
 		}
-		name = fmt.Sprintf("%s - %s", clip.Broadcaster.DisplayName, clip.Title)
+		id = fmt.Sprintf("%s - %s", clip.Broadcaster.DisplayName, clip.Title)
 	case TypeVOD:
 		vod, err := c.VideoMetadata(id)
 		if err != nil {
 			fmt.Println("error", err)
 			return "", err
 		}
-		name = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
+		id = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
 	}
-	return name, nil
+	return id, nil
 }
-
-// change the name
-// func (c *Client) PathName(vType VideoType, id, output string) (string, error) {
-// 	name, err := c.extractNameFromID(vType, id)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return name, nil
-// }
 
 func (c *Client) ID(URL string) (string, VideoType, error) {
 	u, err := url.Parse(URL)
@@ -95,7 +86,6 @@ func New() *Client {
 	if err != nil {
 		panic(err)
 	}
-
 	return &Client{
 		client:      http.DefaultClient,
 		config:      *cfg,
@@ -214,4 +204,37 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 
 func (c *Client) GetToken() string {
 	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
+}
+
+func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration, bar *progressbar.ProgressBar) error {
+	// id, vType, err := api.ID(twitchURL)
+	// if err != nil {
+	// 	return err
+	// }
+	// batch := strings.Split(twitchURL, ",")
+	// if len(batch) > 1 {
+	// 	if err := api.BatchDownload(batch, quality, finalDest, bar); err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }
+
+	mediaName, _ := api.MediaName(id, vType)
+	finalDest := utils.CreatePathname(destPath, mediaName)
+
+	switch vType {
+	case TypeVOD:
+		if err := api.DownloadVideo(finalDest, id, quality, start, end, bar); err != nil {
+			return err
+		}
+	case TypeClip:
+		if err := api.DownloadClip(id, quality, finalDest, bar); err != nil {
+			return err
+		}
+	case TypeLivestream:
+		if err := api.StartRecording(id, quality, finalDest, bar); err != nil {
+			return err
+		}
+	}
+	return nil
 }

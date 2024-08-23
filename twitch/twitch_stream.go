@@ -89,8 +89,9 @@ func (c *Client) StartRecording(id, quality, outpath string, bar *progressbar.Pr
 		return err
 	}
 	if isLive {
-		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-		c.recordLivestream(id, quality, newPath, bar)
+		fmt.Println("IS CHANNEL LIVE: ", id, quality, outpath)
+		// newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
+		c.recordLivestream(id, quality, outpath, bar)
 	} else {
 		return fmt.Errorf("the channel %s is currently offline", id)
 	}

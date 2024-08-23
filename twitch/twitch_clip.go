@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	file "github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -88,8 +87,6 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 }
 
 func (c *Client) DownloadClip(slug, quality, destPath string, bar *progressbar.ProgressBar) error {
-	mediaName, _ := c.MediaName(slug, 0)
-	finalDest := file.CreatePathname(destPath, mediaName)
 	usherURL, err := c.GetClipUsherURL(slug, quality)
 	if err != nil {
 		return err
@@ -101,7 +98,7 @@ func (c *Client) DownloadClip(slug, quality, destPath string, bar *progressbar.P
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 
-	if err := c.downloadSegment(req, finalDest, bar); err != nil {
+	if err := c.downloadSegment(req, destPath, bar); err != nil {
 		return err
 	}
 	return nil

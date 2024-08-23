@@ -4,11 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
-	"strings"
 	"time"
-
-	"github.com/Kostaaa1/twitchdl/twitch"
-	"github.com/schollz/progressbar/v3"
 )
 
 type Config struct {
@@ -34,7 +30,7 @@ func createNewClient() *Client {
 
 func main() {
 	client := createNewClient()
-	outpath := "/mnt/c/Users/kosta/OneDrive/Desktop/imgs"
+	outpath := "/mnt/c/Users/kosta/OneDrive/Desktop/imgs/Clips"
 	// paths, err := db.GetBucketValues(client.db)
 	// if err != nil {
 	// 	client.logger.Fatal(err)
@@ -48,7 +44,6 @@ func main() {
 	flag.BoolVar(&cfg.overwrite, "overwrite", false, "Overwrite the database paths with provided paths.")
 	flag.StringVar(&cfg.output, "output", outpath, "Path to the downloaded video.")
 	flag.Parse()
-
 	if cfg.inputURL == "" {
 		if len(os.Args) > 1 {
 			cfg.inputURL = os.Args[1]
@@ -56,55 +51,10 @@ func main() {
 			client.logger.Panic("You need to provide the twitch URL bozo.")
 		}
 	}
-	//////////////////////
-	// if cfg.printPaths {
-	// 	db.PrintConfig(client.db)
-	// 	return
-	// }
-	// if cfg.overwrite {
-	// 	db.UpdateBucketValues(client.db, db.DBKeys{Outpath: cfg.output, Jspath: cfg.jspath})
-	// }
-	//////////////////////
-	// if !IsQualityValid(cfg.quality) {
-	// 	log.Printf("input quality (%s) is not supported", cfg.output)
-	// 	PrintQualities()
-	// }
-	if err := cfg.run(); err != nil {
-		log.Fatal(err)
-	}
-}
 
-func (cfg *Config) run() error {
-	output := cfg.output
-	api := twitch.New()
-	id, vType, err := api.ID(cfg.inputURL)
-	if err != nil {
-		return err
-	}
-	// mediaName, _ := api.MediaName(id, vType)
-	// finalDest := file.CreatePathname(output, mediaName)
-	bar := progressbar.DefaultBytes(-1, "Downloading:")
-	batch := strings.Split(cfg.inputURL, ",")
-	if len(batch) > 1 {
-		if err := api.BatchDownload(batch, cfg.quality, output, bar); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	switch vType {
-	case twitch.TypeVOD:
-		// if err := api.DownloadVideo(finalDest, id, cfg.quality, cfg.start, cfg.end); err != nil {
-		// 	return err
-		// }
-	case twitch.TypeClip:
-		if err := api.DownloadClip(id, cfg.quality, output, bar); err != nil {
-			return err
-		}
-	case twitch.TypeLivestream:
-		if err := api.StartRecording(id, cfg.quality, output, bar); err != nil {
-			return err
-		}
-	}
-	return nil
+	// bar := progressbar.DefaultBytes(-1, "Downloading:")
+	// api := twitch.New()
+	// if err := api.Downloader(cfg.output, cfg.inputURL, cfg.quality, cfg.start, cfg.end, bar); err != nil {
+	// 	log.Fatal(err)
+	// }
 }

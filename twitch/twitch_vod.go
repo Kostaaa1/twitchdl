@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	file "github.com/Kostaaa1/twitchdl/utils"
+	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -108,61 +108,52 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	return p.Data.Video, nil
 }
 
-func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Duration) error {
+func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Duration, bar *progressbar.ProgressBar) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err
 	}
-	m3u8, err := c.GetVODMasterM3u8(token, sig, id)
-	if err != nil {
-		return err
-	}
-	serialized := string(m3u8)
-
-	urls := c.GetMediaPlaylists(serialized)
-	u := file.ConstructURL(urls, quality)
-	if err := c.DownloadVOD(u, dstPath, start, end); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) error {
-	m3u8, err := c.GetMediaPlaylist(fmt.Sprintf("%sindex-dvr.m3u8", URL))
+	master, err := c.GetVODMasterM3u8(token, sig, id)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Create(filePath)
+	urls := c.GetMediaPlaylists(master)
+	playlistURL := utils.ExtractURL(urls, quality)
+	playlist, err := c.GetMediaPlaylist(playlistURL)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(dstPath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	lines := strings.Split(string(m3u8), "\n")
 	var segmentDuration float64 = 10
-	segStart := 0
-
 	s := int(start.Seconds()/segmentDuration) * 2
 	e := int(end.Seconds()/segmentDuration) * 2
 
 	var segmentLines []string
+	segStart := 0
+
+	lines := strings.Split(string(playlist), "\n")
 	if e == 0 {
 		segmentLines = lines[segStart:][s:]
 	} else {
 		segmentLines = lines[segStart:][s:e]
 	}
 
-	bar := progressbar.DefaultBytes(-1, "Downloading:")
 	for _, tsFile := range segmentLines {
 		if strings.HasSuffix(tsFile, ".ts") {
-			chunkURL := fmt.Sprintf("%s%s", URL, tsFile)
+			chunkURL := playlistURL + tsFile
 			req, err := http.NewRequest(http.MethodGet, chunkURL, nil)
 			if err != nil {
 				fmt.Println("failed to create request for: ", chunkURL)
 				break
 			}
-			if err := c.downloadSegment(req, filePath, bar); err != nil {
+			if err := c.downloadSegment(req, dstPath, bar); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 			}
 			bar.Add(1)
@@ -171,8 +162,8 @@ func (c *Client) DownloadVOD(URL, filePath string, start, end time.Duration) err
 	return nil
 }
 
-func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
+func (c *Client) GetMediaPlaylist(playlistURL string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, playlistURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +172,6 @@ func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
 	m3u8, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -189,8 +179,8 @@ func (c *Client) GetMediaPlaylist(URL string) ([]byte, error) {
 	return m3u8, nil
 }
 
-func (c *Client) GetMediaPlaylists(serializedM3u8 string) []string {
-	lines := strings.Split(serializedM3u8, "\n")
+func (c *Client) GetMediaPlaylists(master []byte) []string {
+	lines := strings.Split(string(master), "\n")
 	var u []string
 	for i := 0; i < len(lines); i++ {
 		line := lines[i]
