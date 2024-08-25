@@ -83,21 +83,6 @@ func (c *Client) GetStreamMediaPlaylist(channel, quality string) (*m3u8.List, er
 	return &mediaList, nil
 }
 
-func (c *Client) StartRecording(id, quality, outpath string, bar *progressbar.ProgressBar) error {
-	isLive, err := IsChannelLive(id)
-	if err != nil {
-		return err
-	}
-	if isLive {
-		fmt.Println("IS CHANNEL LIVE: ", id, quality, outpath)
-		// newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-		c.recordLivestream(id, quality, outpath, bar)
-	} else {
-		return fmt.Errorf("the channel %s is currently offline", id)
-	}
-	return nil
-}
-
 func isAdRunning(segments []string) int {
 	for i := len(segments) - 1; i > 0; i-- {
 		if segments[i] == "#EXT-X-DISCONTINUITY" {
@@ -105,6 +90,21 @@ func isAdRunning(segments []string) int {
 		}
 	}
 	return 0
+}
+
+func (c *Client) RecordStream(id, quality, outpath string) error {
+	isLive, err := IsChannelLive(id)
+	if err != nil {
+		return err
+	}
+	if isLive {
+		bar := progressbar.DefaultBytes(-1, "Downloading: ")
+		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
+		c.recordLivestream(id, quality, newPath, bar)
+	} else {
+		return fmt.Errorf("the channel %s is currently offline", id)
+	}
+	return nil
 }
 
 func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar.ProgressBar) error {
@@ -140,7 +140,6 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 				if err != nil {
 					log.Println("failed to initiate the request")
 				}
-
 				if err := c.downloadSegment(req, destPath, bar); err != nil {
 					log.Printf("failed to download and write segment: %v", err)
 				}

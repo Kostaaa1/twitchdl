@@ -56,29 +56,24 @@ func (c *Client) MediaName(id string, vType VideoType) (string, error) {
 }
 
 func (c *Client) ID(URL string) (string, VideoType, error) {
-	u, err := url.Parse(URL)
+	parsedURL, err := url.Parse(URL)
 	if err != nil {
 		return "", 0, fmt.Errorf("failed to parse the URL: %s", err)
 	}
-	if !strings.Contains(u.Hostname(), "twitch.tv") {
+	if !strings.Contains(parsedURL.Hostname(), "twitch.tv") {
 		return "", 0, fmt.Errorf("the hostname of the URL does not contain twitch.tv")
 	}
-	// handle live stream
-	s := strings.Split(u.Path, "/")
-	if len(s) == 2 {
-		return s[1], TypeLivestream, nil
-	}
-	// handle clip
-	if strings.Contains(u.Path, "/clip/") {
-		_, id := path.Split(u.Path)
+	s := strings.Split(parsedURL.Path, "/")
+
+	if strings.Contains(parsedURL.Host, "clips.twitch.tv") || strings.Contains(parsedURL.Path, "/clip/") {
+		_, id := path.Split(parsedURL.Path)
 		return id, TypeClip, nil
 	}
-	// handle vod
-	if strings.Contains(u.Path, "/videos/") {
-		_, id := path.Split(u.Path)
+	if strings.Contains(parsedURL.Path, "/videos/") {
+		_, id := path.Split(parsedURL.Path)
 		return id, TypeVOD, nil
 	}
-	return "", 0, fmt.Errorf("failed to get the information from the URL")
+	return s[1], TypeLivestream, nil
 }
 
 func New() *Client {
@@ -179,6 +174,31 @@ func IsChannelLive(channelName string) (bool, error) {
 	return !strings.Contains(string(b), "offline"), nil
 }
 
+func (c *Client) GetToken() string {
+	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
+}
+
+func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration) error {
+	mediaName, _ := api.MediaName(id, vType)
+	finalDest := utils.CreatePathname(destPath, mediaName)
+
+	switch vType {
+	case TypeVOD:
+		if err := api.DownloadVideo(finalDest, id, quality, start, end); err != nil {
+			return err
+		}
+	case TypeClip:
+		if err := api.DownloadClip(id, quality, finalDest); err != nil {
+			return err
+		}
+	case TypeLivestream:
+		if err := api.RecordStream(id, quality, destPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progressbar.ProgressBar) error {
 	f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -198,43 +218,6 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func (c *Client) GetToken() string {
-	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
-}
-
-func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration, bar *progressbar.ProgressBar) error {
-	// id, vType, err := api.ID(twitchURL)
-	// if err != nil {
-	// 	return err
-	// }
-	// batch := strings.Split(twitchURL, ",")
-	// if len(batch) > 1 {
-	// 	if err := api.BatchDownload(batch, quality, finalDest, bar); err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }
-
-	mediaName, _ := api.MediaName(id, vType)
-	finalDest := utils.CreatePathname(destPath, mediaName)
-
-	switch vType {
-	case TypeVOD:
-		if err := api.DownloadVideo(finalDest, id, quality, start, end, bar); err != nil {
-			return err
-		}
-	case TypeClip:
-		if err := api.DownloadClip(id, quality, finalDest, bar); err != nil {
-			return err
-		}
-	case TypeLivestream:
-		if err := api.StartRecording(id, quality, finalDest, bar); err != nil {
-			return err
-		}
 	}
 	return nil
 }

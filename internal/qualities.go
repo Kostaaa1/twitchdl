@@ -1,4 +1,4 @@
-package main
+package qualities
 
 import (
 	"fmt"
@@ -39,7 +39,7 @@ func FindQuality(qualities []string, quality string) string {
 
 func IsQualityValid(q string) bool {
 	for _, quality := range supportedQualities {
-		if strings.HasPrefix(q, quality) || strings.HasPrefix(quality, q) {
+		if strings.HasPrefix(quality, q) {
 			return true
 		}
 	}

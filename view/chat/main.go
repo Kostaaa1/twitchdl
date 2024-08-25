@@ -106,6 +106,26 @@ func (m Model) Init() tea.Cmd {
 	return m.waitForMsg()
 }
 
+var errTimer *time.Timer
+
+func (m *Model) waitForMsg() tea.Cmd {
+	return func() tea.Msg {
+		newMsg := <-m.msgChan
+		switch newMsg.(type) {
+		case errMsg:
+			if errTimer != nil {
+				errTimer.Stop()
+			}
+			errTimer = time.AfterFunc(time.Second*2, func() {
+				m.msgChan <- errMsg{err: nil}
+			})
+			return newMsg
+		default:
+			return NewChannelMessage{Data: newMsg}
+		}
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -229,26 +249,6 @@ func (m *Model) createNewMessage(chat *types.Chat) types.ChatMessage {
 		},
 	}
 	return newMessage
-}
-
-var errTimer *time.Timer
-
-func (m *Model) waitForMsg() tea.Cmd {
-	return func() tea.Msg {
-		newMsg := <-m.msgChan
-		switch newMsg.(type) {
-		case errMsg:
-			if errTimer != nil {
-				errTimer.Stop()
-			}
-			errTimer = time.AfterFunc(time.Second*2, func() {
-				m.msgChan <- errMsg{err: nil}
-			})
-			return newMsg
-		default:
-			return NewChannelMessage{Data: newMsg}
-		}
-	}
 }
 
 func (m *Model) renderError() string {

@@ -5,6 +5,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Kostaaa1/twitchdl/twitch"
+	"github.com/Kostaaa1/twitchdl/types"
+	"github.com/Kostaaa1/twitchdl/view/chat"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -22,7 +25,9 @@ func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
 type model struct {
-	list list.Model
+	list   list.Model
+	twitch *twitch.Client
+	cfg    *types.JsonConfig
 }
 
 func (m model) Init() tea.Cmd {
@@ -37,12 +42,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			item := m.list.SelectedItem().FilterValue()
-			if strings.HasPrefix(item, "Download") {
-			}
-			if strings.HasPrefix(item, "Record") {
-			}
 			if strings.HasPrefix(item, "Chats") {
-				// chat.Open()
+				chat.Open(m.twitch, m.cfg)
 			}
 			return m, tea.Quit
 		}
@@ -60,10 +61,9 @@ func (m model) View() string {
 	return docStyle.Render(m.list.View())
 }
 
-func Open() {
+func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	var items = []list.Item{
-		item{title: "Download livestream", desc: "Provide URL of Clip or VOD to download."},
-		item{title: "Record livestream", desc: "Record livestream."},
+		item{title: "Chats", desc: "Open chats."},
 		item{title: "Chats", desc: "Open chats."},
 	}
 
@@ -72,7 +72,11 @@ func Open() {
 	d.Styles.SelectedDesc = d.Styles.SelectedDesc.Foreground(mainColor).BorderLeftForeground(mainColor)
 	d.Styles.FilterMatch = d.Styles.FilterMatch.Underline(false)
 
-	m := model{list: list.New(items, d, 0, 0)}
+	m := model{
+		list:   list.New(items, d, 0, 0),
+		twitch: twitch,
+		cfg:    cfg,
+	}
 	m.list.Title = "Twitch"
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func isFileReal(filePath string) bool {
+func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 	return !os.IsNotExist(err)
 }
@@ -32,7 +32,6 @@ func getFullURL(u string) string {
 		Host:   parsed.Host,
 		Path:   v,
 	}
-
 	return fullURL.String()
 }
 
@@ -82,7 +81,7 @@ func CreatePathname(dstPath, filename string) string {
 	filename = re.ReplaceAllString(filename, "_")
 	filePath := filepath.Join(dstPath, fmt.Sprintf("%s.mp4", filename))
 	counter := 1
-	for isFileReal(filePath) {
+	for fileExists(filePath) {
 		filePath = filepath.Join(dstPath, fmt.Sprintf("%s (%v).mp4", filename, counter))
 		counter++
 	}

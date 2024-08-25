@@ -108,7 +108,7 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	return p.Data.Video, nil
 }
 
-func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Duration, bar *progressbar.ProgressBar) error {
+func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Duration) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err
@@ -153,6 +153,7 @@ func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Dura
 				fmt.Println("failed to create request for: ", chunkURL)
 				break
 			}
+			bar := progressbar.DefaultBytes(-1, "Downloading: ")
 			if err := c.downloadSegment(req, dstPath, bar); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 			}

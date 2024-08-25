@@ -86,7 +86,7 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 	return URL, nil
 }
 
-func (c *Client) DownloadClip(slug, quality, destPath string, bar *progressbar.ProgressBar) error {
+func (c *Client) DownloadClip(slug, quality, destPath string) error {
 	usherURL, err := c.GetClipUsherURL(slug, quality)
 	if err != nil {
 		return err
@@ -98,13 +98,14 @@ func (c *Client) DownloadClip(slug, quality, destPath string, bar *progressbar.P
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 
+	bar := progressbar.DefaultBytes(-1, "Downloading: ")
 	if err := c.downloadSegment(req, destPath, bar); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Client) BatchDownload(urls []string, quality, destPath string, bar *progressbar.ProgressBar) error {
+func (c *Client) BatchDownload(urls []string, quality, destPath string) error {
 	maxConcurrentDownloads := 4
 	var wg sync.WaitGroup
 
@@ -125,7 +126,7 @@ func (c *Client) BatchDownload(urls []string, quality, destPath string, bar *pro
 				errChan <- fmt.Errorf("failed to get ID for URL: %s, error: %w", URL, err)
 				return
 			}
-			if err := c.DownloadClip(slug, quality, destPath, bar); err != nil {
+			if err := c.DownloadClip(slug, quality, destPath); err != nil {
 				errChan <- fmt.Errorf("failed to download clip from URL: %s, error: %w", URL, err)
 			}
 		}(URL)

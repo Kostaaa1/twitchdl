@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/utils"
-	"github.com/Kostaaa1/twitchdl/view/prompts"
+	"github.com/Kostaaa1/twitchdl/view/root"
 )
 
 func main() {
@@ -12,6 +12,5 @@ func main() {
 		panic(err)
 	}
 	twitch := twitch.New()
-
-	prompts.Open(twitch, cfg)
+	root.Open(twitch, cfg)
 }
