@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -108,7 +109,7 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	return p.Data.Video, nil
 }
 
-func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Duration) error {
+func (c *Client) DownloadVideo(id, dstPath, quality string, start, end time.Duration) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err
@@ -117,9 +118,8 @@ func (c *Client) DownloadVideo(dstPath, id, quality string, start, end time.Dura
 	if err != nil {
 		return err
 	}
-
 	urls := c.GetMediaPlaylists(master)
-	playlistURL := utils.ExtractURL(urls, quality)
+	playlistURL := getURLByQuality(urls, quality)
 	playlist, err := c.GetMediaPlaylist(playlistURL)
 	if err != nil {
 		return err
@@ -188,6 +188,41 @@ func (c *Client) GetMediaPlaylists(master []byte) []string {
 		if strings.HasPrefix(line, "#EXT-X-STREAM-INF") {
 			u = append(u, lines[i+1])
 		}
+	}
+	return u
+}
+
+func getURLByQuality(urls []string, quality string) string {
+	// ???
+	getFullURL := func(u string) string {
+		parsed, err := url.Parse(u)
+		if err != nil {
+			return ""
+		}
+		v, _ := path.Split(parsed.Path)
+		fullURL := &url.URL{
+			Scheme: "https",
+			Host:   parsed.Host,
+			Path:   v,
+		}
+		return fullURL.String()
+	}
+
+	if quality == "best" {
+		return getFullURL(urls[0])
+	}
+	if quality == "worst" {
+		return getFullURL(urls[len(urls)-1])
+	}
+	var u string
+	if quality != "" {
+		for _, x := range urls {
+			if strings.Contains(x, quality) {
+				u = getFullURL(x)
+			}
+		}
+	} else {
+		u = getFullURL(urls[0])
 	}
 	return u
 }

@@ -74,36 +74,47 @@ type Notice struct {
 }
 
 type JsonConfig struct {
-	ID              string    `json:"id"`
-	Login           string    `json:"login"`
-	DisplayName     string    `json:"displayName"`
-	Type            string    `json:"type"`
-	BroadcasterType string    `json:"broadcasterType"`
-	Description     string    `json:"description"`
-	ProfileImageURL string    `json:"profileImageUrl"`
-	OfflineImageURL string    `json:"offlineImageUrl"`
-	CreatedAt       time.Time `json:"createdAt"`
-	ActiveChannels  []string  `json:"activeChannels"`
+	OpenedChats     []string  `json:"openedChats"`
+	Broadcastertype string    `json:"broadcastertype"`
+	Colors          Colors    `json:"colors"`
+	Createdat       time.Time `json:"createdat"`
 	Creds           struct {
-		AccessToken  string `json:"accessToken"`
-		ClientID     string `json:"clientId"`
-		ClientSecret string `json:"clientSecret"`
+		AccessToken  string `json:"accesstoken"`
+		ClientID     string `json:"clientid"`
+		ClientSecret string `json:"clientsecret"`
 	} `json:"creds"`
-	ShowTimestamps bool `json:"showTimestamps"`
-	Colors         struct {
-		MainWindowBackground string `json:"mainWindowBackground"`
-		Border               string `json:"border"`
-		Timestamp            string `json:"timestamp"`
-		Messages             struct {
-			Original string `json:"original"`
-			Raid     string `json:"raid"`
-			Sub      string `json:"sub"`
-			First    string `json:"first"`
-			Subgif   string `json:"subgif"`
-		} `json:"messages:"`
-	} `json:"colors"`
-	Paths struct {
-		ChromePath string `json:"chromePath"`
-		OutputPath string `json:"outputPath"`
+	Description     string   `json:"description"`
+	Displayname     string   `json:"displayname"`
+	ID              string   `json:"id"`
+	Login           string   `json:"login"`
+	Offlineimageurl string   `json:"offlineimageurl"`
+	Openedchats     []string `json:"openedchats"`
+	Paths           struct {
+		Chromepath string `json:"chromepath"`
+		Outputpath string `json:"outputpath"`
 	} `json:"paths"`
+	Profileimageurl string `json:"profileimageurl"`
+	Showtimestamps  bool   `json:"showtimestamps"`
+	Type            string `json:"type"`
+}
+
+type Colors struct {
+	Primary   string `json:"primary"`
+	Secondary string `json:"secondary"`
+	Danger    string `json:"danger"`
+	Border    string `json:"border"`
+	Icons     struct {
+		Broadcaster string `json:"broadcaster"`
+		Mod         string `json:"mod"`
+		Staff       string `json:"staff"`
+		Vip         string `json:"vip"`
+	} `json:"icons"`
+	Messages struct {
+		Announcmentcolor string `json:"announcmentcolor"`
+		First            string `json:"first"`
+		Original         string `json:"original"`
+		Raid             string `json:"raid"`
+		Subgif           string `json:"subgif"`
+	} `json:"messages"`
+	Timestamp string `json:"timestamp"`
 }

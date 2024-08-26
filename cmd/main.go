@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Kostaaa1/twitchdl/internal/config"
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/utils"
 )
@@ -18,7 +19,7 @@ type Config struct {
 }
 
 func main() {
-	jsonCfg, err := utils.GetConfig()
+	jsonCfg, err := config.Get()
 	if err != nil {
 		panic(err)
 	}

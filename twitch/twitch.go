@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Kostaaa1/twitchdl/internal/config"
+	"github.com/Kostaaa1/twitchdl/internal/file"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -35,7 +36,6 @@ const (
 	TypeLivestream
 )
 
-// change the name
 func (c *Client) MediaName(id string, vType VideoType) (string, error) {
 	switch vType {
 	case TypeClip:
@@ -77,7 +77,7 @@ func (c *Client) ID(URL string) (string, VideoType, error) {
 }
 
 func New() *Client {
-	cfg, err := utils.GetConfig()
+	cfg, err := config.Get()
 	if err != nil {
 		panic(err)
 	}
@@ -180,10 +180,10 @@ func (c *Client) GetToken() string {
 
 func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration) error {
 	mediaName, _ := api.MediaName(id, vType)
-	finalDest := utils.CreatePathname(destPath, mediaName)
+	finalDest := file.NewPathname(destPath, mediaName)
 	switch vType {
 	case TypeVOD:
-		if err := api.DownloadVideo(finalDest, id, quality, start, end); err != nil {
+		if err := api.DownloadVideo(id, quality, finalDest, start, end); err != nil {
 			return err
 		}
 	case TypeClip:

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/Kostaaa1/twitchdl/utils"
@@ -11,45 +12,26 @@ import (
 )
 
 const (
-	subColor = "#04a5e5"
-	// announcementColor = "#40a02b"
-	raidColor     = "#fe640b"
-	firstMsgColor = "#ea76db"
+	subColor          = "#04a5e5"
+	announcementColor = "#40a02b"
+	raidColor         = "#fe640b"
+	firstMsgColor     = "#ea76db"
 )
 
-func usernameColorizer(color string) lipgloss.Style {
+func colorStyle(color string) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 }
-
-// var (
-// 	showBadges            bool
-// 	showTimestamps        bool
-// 	highlightSubs         bool
-// 	highlightRaids        bool
-// 	firstTimeChatterColor string
-// 	watchedUsers          map[string]any
-// )
-// SetFormatterConfigValues sets the formatter customization options from the config.
-// This is required because Viper won't have loaded the config yet when it reads this file.
-// func SetFormatterConfigValues() {
-// 	showBadges = viper.GetBool(ShowBadgesKey)
-// 	showTimestamps = viper.GetBool(ShowTimestampsKey)
-// 	highlightSubs = viper.GetBool(HighlightRaidsKey)
-// 	highlightRaids = viper.GetBool(HighlightRaidsKey)
-// 	watchedUsers = viper.GetStringMap(WatchedUsersKey)
-// 	firstTimeChatterColor = viper.GetString(FirstTimeChatterColorKey)
-// }
 
 func GenerateIcon(userType string) string {
 	switch userType {
 	case "broadcaster":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#d20f39")).Render(" [] ")
+		return colorStyle("#d20f39").Render(" [] ")
 	case "mod":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#40a02b")).Render(" [⛨] ")
+		return colorStyle("#40a02b").Render(" [⛨] ")
 	case "vip":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ea76cb")).Render(" [★] ")
+		return colorStyle("#ea76cb").Render(" [★] ")
 	case "staff":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#8839ef")).Render(" [★] ")
+		return colorStyle("#8839ef").Render(" [★] ")
 	}
 	return " "
 }
@@ -66,12 +48,12 @@ func GenerateIcon(userType string) string {
 func FormatChatMessage(message types.ChatMessage, width int) string {
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
-		message.Metadata.Color = utils.GetRandHex()
+		message.Metadata.Color = string(rand.Intn(257))
 	}
 	msg := fmt.Sprintf(
 		"%s%s: %s",
 		icon,
-		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
+		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Message,
 	)
 
@@ -88,12 +70,12 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 func FormatSubMessage(message types.SubNotice, width int) string {
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
-		message.Metadata.Color = utils.GetRandHex()
+		message.Metadata.Color = string(rand.Intn(257))
 	}
 	msg := fmt.Sprintf(
 		"%s%s: ✯ %s",
 		icon,
-		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
+		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Metadata.SystemMsg,
 	)
 	box := components.NewBoxWithLabel(subColor)
@@ -105,12 +87,12 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 func FormatRaidMessage(message types.RaidNotice, width int) string {
 	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
-		message.Metadata.Color = utils.GetRandHex()
+		message.Metadata.Color = string(rand.Intn(257))
 	}
 	msg := fmt.Sprintf(
 		"%s%s: ✯ %s",
 		icon,
-		usernameColorizer(message.Metadata.Color).Render(message.Metadata.DisplayName),
+		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Metadata.SystemMsg,
 	)
 	box := components.NewBoxWithLabel(raidColor)
@@ -123,7 +105,7 @@ func FormatRaidMessage(message types.RaidNotice, width int) string {
 // 	box := NewBoxWithLabel(subColor)
 // 	msg := fmt.Sprintf(
 // 		"%s gifted a subscription to %s!",
-// 		usernameColorizer(message.Color).Render(message.GiverName),
+// 		colorStyle(message.Color).Render(message.GiverName),
 // 		message.ReceiverName,
 // 	)
 // 	msg = wordwrap.String(msg, width)
@@ -137,7 +119,7 @@ func FormatRaidMessage(message types.RaidNotice, width int) string {
 // 	box := NewBoxWithLabel(announcementColor)
 // 	msg := fmt.Sprintf(
 // 		"%s: %s",
-// 		usernameColorizer(message.Color).Render(message.DisplayName),
+// 		colorStyle(message.Color).Render(message.DisplayName),
 // 		message.Message,
 // 	)
 // 	msg = wordwrap.String(msg, width)
@@ -148,7 +130,7 @@ func FormatRaidMessage(message types.RaidNotice, width int) string {
 // 	box := NewBoxWithLabel(subColor)
 // 	msg := fmt.Sprintf(
 // 		"%s is giving %s subs to the channel!",
-// 		usernameColorizer(message.Color).Render(message.GiverName),
+// 		colorStyle(message.Color).Render(message.GiverName),
 // 		message.GiftAmount,
 // 	)
 // 	msg = wordwrap.String(msg, width)

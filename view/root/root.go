@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var mainColor = lipgloss.Color("63")
+var mainColor = lipgloss.Color("#8839ef")
 var docStyle = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(mainColor)
 
 type item struct {
@@ -64,7 +64,7 @@ func (m model) View() string {
 func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	var items = []list.Item{
 		item{title: "Chats", desc: "Open chats."},
-		item{title: "Chats", desc: "Open chats."},
+		item{title: "???", desc: "Add list."},
 	}
 
 	d := list.NewDefaultDelegate()
@@ -77,7 +77,8 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 		twitch: twitch,
 		cfg:    cfg,
 	}
-	m.list.Title = "Twitch"
+	m.list.Title = " Twitch "
+	m.list.Styles.Title = lipgloss.NewStyle().Background(mainColor).Bold(true)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

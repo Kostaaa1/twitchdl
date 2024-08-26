@@ -2,112 +2,14 @@ package utils
 
 import (
 	"fmt"
-	"math/rand"
-	"net/url"
 	"os"
-	"path"
-	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"os/signal"
-
-	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/spf13/viper"
 )
-
-func fileExists(filePath string) bool {
-	_, err := os.Stat(filePath)
-	return !os.IsNotExist(err)
-}
-
-func getFullURL(u string) string {
-	parsed, err := url.Parse(u)
-	if err != nil {
-		return ""
-	}
-	v, _ := path.Split(parsed.Path)
-	fullURL := &url.URL{
-		Scheme: "https",
-		Host:   parsed.Host,
-		Path:   v,
-	}
-	return fullURL.String()
-}
-
-func ExtractURL(urls []string, quality string) string {
-	if quality == "best" {
-		return getFullURL(urls[0])
-	}
-	if quality == "worst" {
-		return getFullURL(urls[len(urls)-1])
-	}
-	var u string
-	if quality != "" {
-		for _, x := range urls {
-			if strings.Contains(x, quality) {
-				u = getFullURL(x)
-			}
-		}
-	} else {
-		u = getFullURL(urls[0])
-	}
-	return u
-}
-
-func Capitalize(v string) string {
-	return strings.ToUpper(v[:1]) + v[1:]
-}
-
-func IncludeExecPath(path string) (string, error) {
-	execPath, err := GetExecPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(execPath, path), nil
-}
-
-func GetExecPath() (string, error) {
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	execPath = filepath.Dir(execPath)
-	return execPath, nil
-}
-
-func CreatePathname(dstPath, filename string) string {
-	re := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-	filename = re.ReplaceAllString(filename, "_")
-	filePath := filepath.Join(dstPath, fmt.Sprintf("%s.mp4", filename))
-	counter := 1
-	for fileExists(filePath) {
-		filePath = filepath.Join(dstPath, fmt.Sprintf("%s (%v).mp4", filename, counter))
-		counter++
-	}
-	return filePath
-}
-
-// / random funcs:
-func GetRandHex() string {
-	var rgb struct {
-		red   int
-		green int
-		blue  int
-	}
-	rand.NewSource(time.Now().UnixNano())
-
-	const minBrightness = 128
-	rgb.red = rand.Intn(256-minBrightness) + minBrightness
-	rgb.green = rand.Intn(256-minBrightness) + minBrightness
-	rgb.blue = rand.Intn(256-minBrightness) + minBrightness
-
-	hex := fmt.Sprintf("#%02x%02x%02x", rgb.red, rgb.green, rgb.blue)
-	return strings.ToUpper(hex)
-}
 
 func GetCurrentTimeFormatted() string {
 	now := time.Now()
@@ -135,16 +37,6 @@ func RemoveCursor() {
 	}()
 }
 
-// config.json
-func GetConfig() (*types.JsonConfig, error) {
-	viper.SetConfigName("config")
-	viper.SetConfigType("json")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
-	if err != nil {
-		return nil, err
-	}
-	var data types.JsonConfig
-	viper.Unmarshal(&data)
-	return &data, nil
+func Capitalize(v string) string {
+	return strings.ToUpper(v[:1]) + v[1:]
 }

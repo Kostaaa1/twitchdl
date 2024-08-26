@@ -147,7 +147,7 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 				}
 			} else {
 				if !isAdFound {
-					fmt.Printf("\n[Be patient] found twitch AD at %d position, this can take a while...\n", discontinuityID)
+					fmt.Printf("\n[Please be patient] found twitch AD at %d position, this can take a while...\n", discontinuityID)
 					isAdFound = true
 				}
 			}

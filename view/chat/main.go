@@ -3,7 +3,6 @@ package chat
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/twitch"
@@ -34,7 +33,6 @@ type Model struct {
 	showCommands        bool
 	commandsWindowWidth int
 	err                 error
-	mu                  *sync.Mutex
 }
 
 type errMsg struct {
@@ -61,13 +59,13 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	}
 
 	go func() {
-		if err := ws.Connect(cfg.Creds.AccessToken, cfg.Creds.ClientID, msgChan, cfg.ActiveChannels); err != nil {
+		if err := ws.Connect(cfg.Creds.AccessToken, cfg.Creds.ClientID, msgChan, cfg.OpenedChats); err != nil {
 			fmt.Println("Connection error: ", err)
 		}
 	}()
 
 	chats := []types.Chat{}
-	for i, channel := range cfg.ActiveChannels {
+	for i, channel := range cfg.OpenedChats {
 		chats = append(chats, createNewChat(channel, i == 0))
 	}
 
@@ -79,7 +77,7 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 		width:               0,
 		height:              0,
 		msgChan:             msgChan,
-		labelBox:            components.NewBoxWithLabel("63"),
+		labelBox:            components.NewBoxWithLabel(lipgloss.Color(cfg.Colors.Primary)),
 		viewport:            vp,
 		textinput:           t,
 		showCommands:        false,
@@ -301,8 +299,8 @@ func (m *Model) addChat(channelName string) {
 	for _, c := range m.chats {
 		newChannels = append(newChannels, c.Channel)
 	}
-	viper.Set("activeChannels", newChannels)
-	viper.WriteConfig()
+	viper.Set("openedChats", newChannels)
+	// viper.WriteConfig()
 }
 
 func (m *Model) addRoomToChat(chanMsg types.Room) {
@@ -337,16 +335,15 @@ func (m *Model) removeActiveChat() {
 	m.updateChatViewport(&newActiveC)
 
 	// remove from config...
-	activeChans := viper.GetStringSlice("activeChannels")
-	newActiveChannels := []string{}
+	activeChans := viper.GetStringSlice("openedChats")
+	newOpenedChats := []string{}
 	for _, ch := range activeChans {
 		if ch != activeChan {
-			newActiveChannels = append(newActiveChannels, ch)
+			newOpenedChats = append(newOpenedChats, ch)
 		}
 	}
-	viper.Set("activeChannels", newActiveChannels)
-	viper.WriteConfig()
-
+	viper.Set("openedChats", newOpenedChats)
+	// viper.WriteConfig()
 	m.chats = chats
 }
 
@@ -367,25 +364,25 @@ func (m *Model) updateChatViewport(chat *types.Chat) {
 
 // TODO :
 func (m *Model) moveTabForward() {
-	activeChats := make([]string, len(m.chats))
+	openedChats := make([]string, len(m.chats))
 	for i := len(m.chats) - 1; i >= 0; i-- {
 		if i > 0 && m.chats[i-1].IsActive {
 			m.chats[i], m.chats[i-1] = m.chats[i-1], m.chats[i]
 		}
-		activeChats[i] = m.chats[i].Channel
+		openedChats[i] = m.chats[i].Channel
 	}
-	viper.Set("activechannels", activeChats)
+	viper.Set("openedChats", openedChats)
 }
 
 func (m *Model) moveTabBack() {
-	activeChats := make([]string, len(m.chats))
+	openedChats := make([]string, len(m.chats))
 	for i := range m.chats {
 		if i < len(m.chats)-1 && m.chats[i+1].IsActive {
 			m.chats[i], m.chats[i+1] = m.chats[i+1], m.chats[i]
 		}
-		activeChats[i] = m.chats[i].Channel
+		openedChats[i] = m.chats[i].Channel
 	}
-	viper.Set("activechannels", activeChats)
+	viper.Set("openedChats", openedChats)
 }
 
 func (m *Model) nextTab() {
