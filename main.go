@@ -1,16 +1,13 @@
 package main
 
-import (
-	"github.com/Kostaaa1/twitchdl/twitch"
-	"github.com/Kostaaa1/twitchdl/utils"
-	"github.com/Kostaaa1/twitchdl/view/root"
-)
-
 func main() {
-	cfg, err := utils.GetConfig()
-	if err != nil {
-		panic(err)
-	}
-	twitch := twitch.New()
-	root.Open(twitch, cfg)
+	// bar := progressbar.DefaultBytes(-1, fmt.Sprintf("Recording %s livestream: ", "cinna"))
+	// components.Spinner(bar)
+	// bar := progressbar.DefaultBytes(100, "Downloading...")
+	// cfg, err := utils.GetConfig()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// twitch := twitch.New()
+	// root.Open(twitch, cfg)
 }

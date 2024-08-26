@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -44,8 +44,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// Ask for available qualities
+
+	utils.RemoveCursor()
 
 	if err := twitch.Downloader(id, vType, cfg.output, cfg.quality, cfg.start, cfg.end); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
 }

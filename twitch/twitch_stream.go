@@ -32,7 +32,6 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 		} `json:"data"`
 	}
 	var data payload
-
 	body := strings.NewReader(fmt.Sprintf(gqlPl, id))
 	if err := c.sendGqlLoadAndDecode(body, &data); err != nil {
 		return "", "", err
@@ -55,14 +54,17 @@ func (c *Client) GetStreamMasterPlaylist(channel string) (string, error) {
 	}
 	u := fmt.Sprintf("%s/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_audio_only=true&allow_source=true",
 		c.usherURL, channel, tok, sig)
+
 	resp, err := c.client.Get(u)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
+
 	if s := resp.StatusCode; s < 200 || s >= 300 {
 		return "", fmt.Errorf("unsupported status code (%v) for url: %s", s, u)
 	}
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -92,36 +94,36 @@ func isAdRunning(segments []string) int {
 	return 0
 }
 
+// Checks if the channel is live, gets the stream media playlist, creates the file,
 func (c *Client) RecordStream(id, quality, outpath string) error {
 	isLive, err := IsChannelLive(id)
 	if err != nil {
 		return err
 	}
-	if isLive {
-		bar := progressbar.DefaultBytes(-1, "Downloading: ")
-		newPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-		c.recordLivestream(id, quality, newPath, bar)
-	} else {
+	if !isLive {
 		return fmt.Errorf("the channel %s is currently offline", id)
 	}
-	return nil
-}
 
-func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar.ProgressBar) error {
 	mediaList, err := c.GetStreamMediaPlaylist(id, quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
 
+	destPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
 	f, err := os.Create(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer f.Close()
-	ticker := time.NewTicker(2 * time.Second)
+
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	progressTicker := time.NewTicker(100 * time.Millisecond)
+	defer progressTicker.Stop()
+
 	isAdFound := false
+	bar := progressbar.DefaultBytes(-1, fmt.Sprintf("Recording %s stream...", id))
 
 	for {
 		select {
@@ -134,8 +136,8 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 			discontinuityID := isAdRunning(segments)
 			if discontinuityID == 0 {
 				isAdFound = false
-
 				tsURL := segments[len(segments)-2]
+
 				req, err := http.NewRequest(http.MethodGet, tsURL, nil)
 				if err != nil {
 					log.Println("failed to initiate the request")
@@ -149,6 +151,9 @@ func (c *Client) recordLivestream(id, quality, destPath string, bar *progressbar
 					isAdFound = true
 				}
 			}
+
+		case <-progressTicker.C:
+			bar.Add(0)
 		}
 	}
 }

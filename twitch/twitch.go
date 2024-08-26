@@ -181,7 +181,6 @@ func (c *Client) GetToken() string {
 func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration) error {
 	mediaName, _ := api.MediaName(id, vType)
 	finalDest := utils.CreatePathname(destPath, mediaName)
-
 	switch vType {
 	case TypeVOD:
 		if err := api.DownloadVideo(finalDest, id, quality, start, end); err != nil {

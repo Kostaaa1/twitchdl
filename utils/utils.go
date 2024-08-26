@@ -10,7 +10,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
+
+	"os/signal"
 
 	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/spf13/viper"
@@ -119,6 +122,17 @@ func ParseTimestamp(v string) string {
 	t := time.Unix(seconds, 0)
 	formatted := t.Format("03:04")
 	return formatted
+}
+
+func RemoveCursor() {
+	fmt.Printf("\033[?25l")
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		fmt.Printf("\033[?25h")
+		os.Exit(0)
+	}()
 }
 
 // config.json
