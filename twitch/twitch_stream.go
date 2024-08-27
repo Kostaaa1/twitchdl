@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/m3u8"
-	"github.com/schollz/progressbar/v3"
 )
 
 func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
@@ -122,7 +121,6 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 	defer progressTicker.Stop()
 
 	isAdFound := false
-	bar := progressbar.DefaultBytes(-1, fmt.Sprintf("Recording %s stream...", id))
 
 	for {
 		select {
@@ -141,7 +139,7 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 				if err != nil {
 					log.Println("failed to initiate the request")
 				}
-				if err := c.downloadSegment(req, destPath, bar); err != nil {
+				if err := c.downloadSegment(req, destPath); err != nil {
 					log.Printf("failed to download and write segment: %v", err)
 				}
 			} else {
@@ -151,8 +149,8 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 				}
 			}
 
-		case <-progressTicker.C:
-			bar.Add(0)
+			// case <-progressTicker.C:
+			// 	bar.Add(0)
 		}
 	}
 }

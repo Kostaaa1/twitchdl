@@ -9,8 +9,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 type VideoCredResponse struct {
@@ -143,8 +141,6 @@ func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Dura
 		segmentLines = lines[s:e]
 	}
 
-	bar := progressbar.DefaultBytes(-1, "Downloading: ")
-
 	for _, tsFile := range segmentLines {
 		if strings.HasSuffix(tsFile, ".ts") {
 			chunkURL := strings.Split(playlistURL, "index-dvr.m3u8")[0] + tsFile
@@ -153,7 +149,7 @@ func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Dura
 				fmt.Println("failed to create request for: ", chunkURL)
 				break
 			}
-			if err := c.downloadSegment(req, dstPath, bar); err != nil {
+			if err := c.downloadSegment(req, dstPath); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 			}
 		}
@@ -204,7 +200,6 @@ func getURLByQuality(urls []string, quality string) string {
 		}
 		return fullURL.String()
 	}
-
 	if quality == "best" {
 		return urls[0]
 	}

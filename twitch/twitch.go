@@ -15,7 +15,6 @@ import (
 	"github.com/Kostaaa1/twitchdl/internal/config"
 	"github.com/Kostaaa1/twitchdl/internal/file"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/schollz/progressbar/v3"
 )
 
 type Client struct {
@@ -198,7 +197,7 @@ func (api *Client) Downloader(id string, vType VideoType, destPath, quality stri
 	return nil
 }
 
-func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progressbar.ProgressBar) error {
+func (c *Client) downloadSegment(req *http.Request, destPath string) error {
 	f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -214,7 +213,7 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-OK response status: %s", resp.Status)
 	}
-	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
+	_, err = io.Copy(f, resp.Body)
 	if err != nil {
 		return err
 	}
@@ -224,19 +223,14 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration) {
 	cLimit := 4
 	var wg sync.WaitGroup
-
 	// errChan := make(chan error, len(urls))
 	sem := make(chan struct{}, cLimit)
-
 	for _, URL := range urls {
 		wg.Add(1)
-
 		go func(URL string) {
 			defer wg.Done()
-
 			sem <- struct{}{}
 			defer func() { <-sem }()
-
 			slug, vtype, err := c.ID(URL)
 			if err != nil {
 				// errChan <- err

@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 type VideoQualities []struct {
@@ -97,8 +95,7 @@ func (c *Client) DownloadClip(slug, quality, destPath string) error {
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 
-	bar := progressbar.DefaultBytes(-1, "Downloading: ")
-	if err := c.downloadSegment(req, destPath, bar); err != nil {
+	if err := c.downloadSegment(req, destPath); err != nil {
 		return err
 	}
 	return nil

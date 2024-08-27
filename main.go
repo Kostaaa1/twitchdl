@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/internal/config"
@@ -20,9 +20,11 @@ type Config struct {
 
 func main() {
 	jsonCfg, err := config.Get()
+
 	if err != nil {
 		panic(err)
 	}
+
 	var cfg Config
 	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}")
 	flag.StringVar(&cfg.quality, "quality", "best", "[best 1080 720 480 360 160 worst]. Example: -quality 1080p (optional)")
@@ -42,17 +44,17 @@ func main() {
 		}
 	}
 
-	urls := strings.Split(cfg.inputURL, ",")
-	if len(urls) > 1 {
-		twitch.BatchDownload(urls, cfg.quality, cfg.output, cfg.start, cfg.end)
-		return
-	}
+	// urls := strings.Split(cfg.inputURL, ",")
+	// if len(urls) > 1 {
+	// 	twitch.BatchDownload(urls, cfg.quality, cfg.output, cfg.start, cfg.end)
+	// 	return
+	// }
 
-	// id, vType, err := twitch.ID(cfg.inputURL)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// if err := twitch.Downloader(id, vType, cfg.output, cfg.quality, cfg.start, cfg.end); err != nil {
-	// 	fmt.Println(err)
-	// }
+	id, vType, err := twitch.ID(cfg.inputURL)
+	if err != nil {
+		panic(err)
+	}
+	if err := twitch.Downloader(id, vType, cfg.output, cfg.quality, cfg.start, cfg.end); err != nil {
+		fmt.Println(err)
+	}
 }
