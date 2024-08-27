@@ -15,16 +15,17 @@ type BoxWithLabel struct {
 	width      int
 }
 
-func NewBoxWithLabel(color lipgloss.Color) BoxWithLabel {
+func NewBoxWithLabel(color string) BoxWithLabel {
+	c := lipgloss.Color(color)
 	return BoxWithLabel{
 		BoxStyle: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(color).
+			BorderForeground(c).
 			Padding(0),
 		LabelStyle: lipgloss.
 			NewStyle().
 			Padding(0),
-		color: color,
+		color: c,
 	}
 }
 

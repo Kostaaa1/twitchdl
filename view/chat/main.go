@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Kostaaa1/twitchdl/internal/utils"
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/Kostaaa1/twitchdl/view/components"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -77,14 +77,15 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 		width:               0,
 		height:              0,
 		msgChan:             msgChan,
-		labelBox:            components.NewBoxWithLabel(lipgloss.Color(cfg.Colors.Primary)),
+		labelBox:            components.NewBoxWithLabel(cfg.Colors.Primary),
 		viewport:            vp,
 		textinput:           t,
 		showCommands:        false,
 		commandsWindowWidth: 32,
 	}
 
-	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
 		panic(err)
 	}
 }
@@ -151,9 +152,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
-			m.ws.Conn.Close()
 			viper.WriteConfig()
 			return m, tea.Quit
+
 		case tea.KeyEnter:
 			m.sendMessage()
 		case tea.KeyCtrlRight:

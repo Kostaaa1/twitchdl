@@ -75,26 +75,25 @@ type Notice struct {
 
 type JsonConfig struct {
 	OpenedChats     []string  `json:"openedChats"`
-	Broadcastertype string    `json:"broadcastertype"`
+	BroadcasterType string    `json:"broadcasterType"`
 	Colors          Colors    `json:"colors"`
-	Createdat       time.Time `json:"createdat"`
+	CreatedAt       time.Time `json:"createdAt"`
 	Creds           struct {
-		AccessToken  string `json:"accesstoken"`
-		ClientID     string `json:"clientid"`
-		ClientSecret string `json:"clientsecret"`
+		AccessToken  string `json:"accessToken"`
+		ClientID     string `json:"clientID"`
+		ClientSecret string `json:"clientSecret"`
 	} `json:"creds"`
-	Description     string   `json:"description"`
-	Displayname     string   `json:"displayname"`
-	ID              string   `json:"id"`
-	Login           string   `json:"login"`
-	Offlineimageurl string   `json:"offlineimageurl"`
-	Openedchats     []string `json:"openedchats"`
+	Description     string `json:"description"`
+	DisplayName     string `json:"displayName"`
+	ID              string `json:"id"`
+	Login           string `json:"login"`
+	OfflineImageUrl string `json:"offlineImageUrl"`
 	Paths           struct {
-		Chromepath string `json:"chromepath"`
-		Outputpath string `json:"outputpath"`
+		ChromePath string `json:"chromePath"`
+		OutputPath string `json:"outputPath"`
 	} `json:"paths"`
-	Profileimageurl string `json:"profileimageurl"`
-	Showtimestamps  bool   `json:"showtimestamps"`
+	ProfileImageUrl string `json:"profileImageUrl"`
+	ShowTimestamps  bool   `json:"showTimestamps"`
 	Type            string `json:"type"`
 }
 
@@ -110,11 +109,11 @@ type Colors struct {
 		Vip         string `json:"vip"`
 	} `json:"icons"`
 	Messages struct {
-		Announcmentcolor string `json:"announcmentcolor"`
-		First            string `json:"first"`
-		Original         string `json:"original"`
-		Raid             string `json:"raid"`
-		Subgif           string `json:"subgif"`
+		Announcement string `json:"announcement"`
+		First        string `json:"first"`
+		Original     string `json:"original"`
+		Raid         string `json:"raid"`
+		Sub          string `json:"sub"`
 	} `json:"messages"`
 	Timestamp string `json:"timestamp"`
 }

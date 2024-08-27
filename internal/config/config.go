@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -19,10 +18,7 @@ func Get() (*types.JsonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfgname := "config"
-	cfgext := "json"
-	p := filepath.Join(wd, fmt.Sprintf("%s.%s", cfgname, cfgext))
-
+	p := filepath.Join(wd, "config.json")
 	if !file.Exists(p) {
 		f, err := os.Create(p)
 		if err != nil {
@@ -47,7 +43,4 @@ func Get() (*types.JsonConfig, error) {
 		viper.Unmarshal(&data)
 	}
 	return &data, nil
-}
-
-func Init() {
 }

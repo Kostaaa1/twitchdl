@@ -2,20 +2,14 @@ package chat
 
 import (
 	"fmt"
-	"math/rand"
 
+	"github.com/Kostaaa1/twitchdl/internal/utils"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/utils"
 	"github.com/Kostaaa1/twitchdl/view/components"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-)
-
-const (
-	subColor          = "#04a5e5"
-	announcementColor = "#40a02b"
-	raidColor         = "#fe640b"
-	firstMsgColor     = "#ea76db"
+	"github.com/spf13/viper"
+	"golang.org/x/exp/rand"
 )
 
 func colorStyle(color string) lipgloss.Style {
@@ -62,6 +56,7 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 		timestamp := lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("[%s]", message.Metadata.Timestamp))
 		return fmt.Sprintf("%s%s", timestamp, msg)
 	} else {
+		firstMsgColor := viper.GetString("colors.messages.first")
 		box := components.NewBoxWithLabel(firstMsgColor)
 		return box.RenderBox(" First message ", msg)
 	}
@@ -78,9 +73,12 @@ func FormatSubMessage(message types.SubNotice, width int) string {
 		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Metadata.SystemMsg,
 	)
+
+	subColor := viper.GetString("colors.messages.sub")
 	box := components.NewBoxWithLabel(subColor)
 	msg = wordwrap.String(msg, width-50)
-	label := lipgloss.NewStyle().Foreground(lipgloss.Color(subColor)).Render(fmt.Sprintf(" %s ", utils.Capitalize(message.SubPlan)))
+	color := lipgloss.Color(subColor)
+	label := lipgloss.NewStyle().Foreground(color).Render(fmt.Sprintf(" %s ", utils.Capitalize(message.SubPlan)))
 	return box.RenderBox(label, msg)
 }
 
@@ -95,6 +93,8 @@ func FormatRaidMessage(message types.RaidNotice, width int) string {
 		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
 		message.Metadata.SystemMsg,
 	)
+
+	raidColor := viper.GetString("colors.messages.raid")
 	box := components.NewBoxWithLabel(raidColor)
 	msg = wordwrap.String(msg, width-50)
 	label := lipgloss.NewStyle().Foreground(lipgloss.Color(raidColor)).Render("Raid")

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Kostaaa1/twitchdl/internal/utils"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/utils"
 )
 
 func parseROOMSTATE(rawMsg string) types.Room {

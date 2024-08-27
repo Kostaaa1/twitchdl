@@ -109,7 +109,7 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	return p.Data.Video, nil
 }
 
-func (c *Client) DownloadVideo(id, dstPath, quality string, start, end time.Duration) error {
+func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Duration) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err
@@ -136,28 +136,26 @@ func (c *Client) DownloadVideo(id, dstPath, quality string, start, end time.Dura
 	e := int(end.Seconds()/segmentDuration) * 2
 
 	var segmentLines []string
-	segStart := 0
-
-	lines := strings.Split(string(playlist), "\n")
+	lines := strings.Split(string(playlist), "\n")[8:]
 	if e == 0 {
-		segmentLines = lines[segStart:][s:]
+		segmentLines = lines[s:]
 	} else {
-		segmentLines = lines[segStart:][s:e]
+		segmentLines = lines[s:e]
 	}
+
+	bar := progressbar.DefaultBytes(-1, "Downloading: ")
 
 	for _, tsFile := range segmentLines {
 		if strings.HasSuffix(tsFile, ".ts") {
-			chunkURL := playlistURL + tsFile
+			chunkURL := strings.Split(playlistURL, "index-dvr.m3u8")[0] + tsFile
 			req, err := http.NewRequest(http.MethodGet, chunkURL, nil)
 			if err != nil {
 				fmt.Println("failed to create request for: ", chunkURL)
 				break
 			}
-			bar := progressbar.DefaultBytes(-1, "Downloading: ")
 			if err := c.downloadSegment(req, dstPath, bar); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 			}
-			bar.Add(1)
 		}
 	}
 	return nil
@@ -193,7 +191,6 @@ func (c *Client) GetMediaPlaylists(master []byte) []string {
 }
 
 func getURLByQuality(urls []string, quality string) string {
-	// ???
 	getFullURL := func(u string) string {
 		parsed, err := url.Parse(u)
 		if err != nil {
@@ -209,10 +206,10 @@ func getURLByQuality(urls []string, quality string) string {
 	}
 
 	if quality == "best" {
-		return getFullURL(urls[0])
+		return urls[0]
 	}
 	if quality == "worst" {
-		return getFullURL(urls[len(urls)-1])
+		return urls[len(urls)-1]
 	}
 	var u string
 	if quality != "" {

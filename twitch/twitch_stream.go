@@ -118,8 +118,7 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-
-	progressTicker := time.NewTicker(100 * time.Millisecond)
+	progressTicker := time.NewTicker(200 * time.Second)
 	defer progressTicker.Stop()
 
 	isAdFound := false

@@ -220,3 +220,41 @@ func (c *Client) downloadSegment(req *http.Request, destPath string, bar *progre
 	}
 	return nil
 }
+
+func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration) {
+	cLimit := 4
+	var wg sync.WaitGroup
+
+	// errChan := make(chan error, len(urls))
+	sem := make(chan struct{}, cLimit)
+
+	for _, URL := range urls {
+		wg.Add(1)
+
+		go func(URL string) {
+			defer wg.Done()
+
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			slug, vtype, err := c.ID(URL)
+			if err != nil {
+				// errChan <- err
+				fmt.Println(err)
+				return
+			}
+			if err := c.Downloader(slug, vtype, destpath, quality, start, end); err != nil {
+				// errChan <- err
+				fmt.Println(err)
+				return
+			}
+		}(URL)
+	}
+	wg.Wait()
+	// close(errChan)
+	// if len(errChan) > 0 {
+	// 	for err := range errChan {
+	// 		fmt.Println(err)
+	// 	}
+	// }
+}
