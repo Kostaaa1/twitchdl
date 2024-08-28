@@ -94,10 +94,9 @@ func (c *Client) DownloadClip(slug, quality, destPath string) error {
 		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-
-	if err := c.downloadSegment(req, destPath); err != nil {
-		return err
-	}
+	// if err := c.downloadSegment(req, destPath); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -105,10 +104,8 @@ func (c *Client) DownloadClip(slug, quality, destPath string) error {
 // 	cLimit := 4
 // 	var wg sync.WaitGroup
 // 	errChan := make(chan error, len(urls))
-
 // 	sem := make(chan struct{}, cLimit)
 // 	ctx, cancel := context.WithCancel(context.Background())
-
 // 	defer cancel()
 // 	for _, URL := range urls {
 // 		wg.Add(1)

@@ -3,8 +3,6 @@ package twitch
 import (
 	"fmt"
 	"io"
-	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -133,15 +131,14 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 			discontinuityID := isAdRunning(segments)
 			if discontinuityID == 0 {
 				isAdFound = false
-				tsURL := segments[len(segments)-2]
-
-				req, err := http.NewRequest(http.MethodGet, tsURL, nil)
-				if err != nil {
-					log.Println("failed to initiate the request")
-				}
-				if err := c.downloadSegment(req, destPath); err != nil {
-					log.Printf("failed to download and write segment: %v", err)
-				}
+				// tsURL := segments[len(segments)-2]
+				// req, err := http.NewRequest(http.MethodGet, tsURL, nil)
+				// if err != nil {
+				// 	log.Println("failed to initiate the request")
+				// }
+				// if err := c.downloadSegment(req, destPath); err != nil {
+				// 	log.Printf("failed to download and write segment: %v", err)
+				// }
 			} else {
 				if !isAdFound {
 					fmt.Printf("\n[Please be patient] found twitch AD at %d position, this can take a while...\n", discontinuityID)

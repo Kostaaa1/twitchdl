@@ -117,3 +117,11 @@ type Colors struct {
 	} `json:"messages"`
 	Timestamp string `json:"timestamp"`
 }
+
+type ProgressBarState struct {
+	Text         string
+	ByteCount    int64
+	KBsPerSecond float64
+	Started      time.Duration
+	IsDone       bool
+}

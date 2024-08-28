@@ -177,27 +177,78 @@ func (c *Client) GetToken() string {
 	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
 }
 
-func (api *Client) Downloader(id string, vType VideoType, destPath, quality string, start, end time.Duration) error {
-	mediaName, _ := api.MediaName(id, vType)
+type progressWriter struct {
+	writer     io.Writer
+	progressCh chan<- types.ProgressBarState
+	slug       string
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n, err := pw.writer.Write(p)
+	if err == nil {
+		select {
+		case pw.progressCh <- types.ProgressBarState{Text: pw.slug, ByteCount: int64(n)}:
+			// fmt.Println("Progress update sent successfully")
+		default:
+			// fmt.Println("Progress update skipped (channel might be full)")
+		}
+	}
+	return n, err
+}
+
+func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
+	cLimit := 4
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, cLimit)
+
+	for _, URL := range urls {
+		wg.Add(1)
+		go func(URL string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			if err := c.Downloader(URL, destpath, quality, start, end, progressCh); err != nil {
+				fmt.Println(err)
+				return
+			}
+		}(URL)
+	}
+	wg.Wait()
+	return nil
+}
+
+func (api *Client) Downloader(URL, destPath, quality string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
+	slug, vType, err := api.ID(URL)
+	if err != nil {
+		fmt.Println("ERROR: ", err)
+		return err
+	}
+	mediaName, _ := api.MediaName(slug, vType)
 	finalDest := file.NewPathname(destPath, mediaName)
+
 	switch vType {
 	case TypeVOD:
-		if err := api.DownloadVideo(id, quality, finalDest, start, end); err != nil {
+		if err := api.DownloadVideo(URL, slug, quality, finalDest, start, end, progressCh); err != nil {
 			return err
 		}
 	case TypeClip:
-		if err := api.DownloadClip(id, quality, finalDest); err != nil {
+		if err := api.DownloadClip(slug, quality, finalDest); err != nil {
 			return err
 		}
 	case TypeLivestream:
-		if err := api.RecordStream(id, quality, destPath); err != nil {
+		if err := api.RecordStream(slug, quality, destPath); err != nil {
 			return err
 		}
+	}
+	// fmt.Println("DONE, SENDING THE URL TO S", URL)
+	progressCh <- types.ProgressBarState{
+		Text:   URL,
+		IsDone: true,
 	}
 	return nil
 }
 
-func (c *Client) downloadSegment(req *http.Request, destPath string) error {
+func (c *Client) downloadSegment(destPath string, req *http.Request, pw *progressWriter) error {
 	f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -206,6 +257,7 @@ func (c *Client) downloadSegment(req *http.Request, destPath string) error {
 
 	resp, err := c.client.Do(req)
 	if err != nil {
+		fmt.Println("FAILED TO GET THE RESPONSEJ", err)
 		return fmt.Errorf("failed to get the response from: %s", req.URL)
 	}
 	defer resp.Body.Close()
@@ -213,42 +265,11 @@ func (c *Client) downloadSegment(req *http.Request, destPath string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-OK response status: %s", resp.Status)
 	}
-	_, err = io.Copy(f, resp.Body)
+
+	_, err = io.Copy(pw, resp.Body)
 	if err != nil {
+		fmt.Println("Failed to copy to pw: ", err)
 		return err
 	}
 	return nil
-}
-
-func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration) {
-	cLimit := 4
-	var wg sync.WaitGroup
-	// errChan := make(chan error, len(urls))
-	sem := make(chan struct{}, cLimit)
-	for _, URL := range urls {
-		wg.Add(1)
-		go func(URL string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			slug, vtype, err := c.ID(URL)
-			if err != nil {
-				// errChan <- err
-				fmt.Println(err)
-				return
-			}
-			if err := c.Downloader(slug, vtype, destpath, quality, start, end); err != nil {
-				// errChan <- err
-				fmt.Println(err)
-				return
-			}
-		}(URL)
-	}
-	wg.Wait()
-	// close(errChan)
-	// if len(errChan) > 0 {
-	// 	for err := range errChan {
-	// 		fmt.Println(err)
-	// 	}
-	// }
 }
