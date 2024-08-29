@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Kostaaa1/twitchdl/internal/utils"
 	"github.com/Kostaaa1/twitchdl/types"
@@ -30,11 +31,13 @@ func initialModel(titles []string, progChan chan types.ProgressBarState) model {
 	var state []types.ProgressBarState
 	for i := range titles {
 		state = append(state, types.ProgressBarState{
-			Text:      titles[i],
-			ByteCount: 0,
+			Text:        titles[i],
+			IsDone:      false,
+			ByteCount:   0,
+			StartTime:   time.Now(),
+			CurrentTime: 0,
 		})
 	}
-
 	return model{
 		spinner:      s,
 		data:         state,
@@ -74,19 +77,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.data {
 			if m.data[i].Text == msg.Data.Text {
+				m.data[i].ByteCount += msg.Data.ByteCount
+				m.data[i].CurrentTime = time.Since(m.data[i].StartTime).Seconds()
+				// if m.data[i].CurrentTime > 0 {
+				// m.data[i].KBsPerSecond = float64(m.data[i].ByteCount) / (1024.0 * 1024.0) / m.data[i].CurrentTime
+				// }
 				if msg.Data.IsDone {
 					m.data[i].IsDone = true
 				}
-				// m.data[i].ByteCount += msg.Data.ByteCount
 				break
 			}
 		}
-		return m, m.waitForMsg()
+
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, tea.Batch(cmd, m.waitForMsg())
 
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		return m, tea.Batch(cmd, m.waitForMsg())
 	}
 }
 
@@ -95,22 +105,16 @@ func (m model) View() string {
 		return m.err.Error()
 	}
 	var str strings.Builder
-	for i := range m.data {
-		// this would be the message:
-		// Downloading (22 MB, 4.802 MB/s) [1s]
-		// this would be the speed:
-		// s.KBsPerSecond = float64(p.state.currentBytes) / 1024.0 / s.SecondsSince
-
-		var s string
+	str.WriteString("\n")
+	for i := 0; i < len(m.data); i++ {
+		downloadMsg := fmt.Sprintf("(%s) [%.0fs]", utils.ConvertBytes(m.data[i].ByteCount), m.data[i].CurrentTime)
 		if m.data[i].IsDone {
-			s += fmt.Sprintf("\n✅ %s: (%s) \n", m.data[i].Text, utils.ConvertBytes(m.data[i].ByteCount))
+			s := fmt.Sprintf("✅ %s: %s \n", m.data[i].Text, downloadMsg)
+			str.WriteString(s)
 		} else {
-			s += fmt.Sprintf("\n %s%s: (%s) \n", m.spinner.View(), m.data[i].Text, utils.ConvertBytes(m.data[i].ByteCount))
+			s := fmt.Sprintf(" %s%s: %s \n", m.spinner.View(), m.data[i].Text, downloadMsg)
+			str.WriteString(s)
 		}
-		str.WriteString(s)
-	}
-	if m.quitting {
-		return str.String() + "\n"
 	}
 	return str.String()
 }

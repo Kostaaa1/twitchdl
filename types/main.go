@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type Metadata struct {
 	Color        string
@@ -119,9 +121,9 @@ type Colors struct {
 }
 
 type ProgressBarState struct {
-	Text         string
-	ByteCount    int64
-	KBsPerSecond float64
-	Started      time.Duration
-	IsDone       bool
+	Text        string
+	ByteCount   int64
+	IsDone      bool
+	StartTime   time.Time
+	CurrentTime float64
 }

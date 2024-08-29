@@ -30,11 +30,23 @@ import (
 //   return output[1].split(".")[0] + output[0];
 // }
 
-type SizeUnits struct {
+func ConvertBytes(b int64) string {
+	units := []string{"B", "KB", "MB", "GB", "TB"}
+	values := make([]int64, len(units))
+	values[0] = b
+	for i := 1; i < len(units); i++ {
+		values[i] = values[i-1] / 1024
+	}
+	for i := len(units) - 1; i >= 0; i-- {
+		if values[i] > 0 {
+			return fmt.Sprintf("%d %s", values[i], units[i])
+		}
+	}
+	return ""
 }
 
-func ConvertBytes(b int64) string {
-	units := []string{"bytes", "KB", "MB", "GB", "TB"}
+func CalcSpeed(b int64, elapsedTime float64) string {
+	units := []string{"B", "KB", "MB", "GB", "TB"}
 	values := make([]int64, len(units))
 	values[0] = b
 	for i := 1; i < len(units); i++ {

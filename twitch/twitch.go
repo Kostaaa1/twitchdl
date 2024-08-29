@@ -187,20 +187,20 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	n, err := pw.writer.Write(p)
 	if err == nil {
 		select {
-		case pw.progressCh <- types.ProgressBarState{Text: pw.slug, ByteCount: int64(n)}:
-			// fmt.Println("Progress update sent successfully")
+		case pw.progressCh <- types.ProgressBarState{
+			Text:      pw.slug,
+			ByteCount: int64(n),
+		}:
 		default:
-			// fmt.Println("Progress update skipped (channel might be full)")
 		}
 	}
 	return n, err
 }
 
 func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
-	cLimit := 4
+	cLimit := len(urls)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, cLimit)
-
 	for _, URL := range urls {
 		wg.Add(1)
 		go func(URL string) {
@@ -214,13 +214,13 @@ func (c *Client) BatchDownload(urls []string, quality, destpath string, start, e
 		}(URL)
 	}
 	wg.Wait()
+	close(progressCh)
 	return nil
 }
 
 func (api *Client) Downloader(URL, destPath, quality string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
 	slug, vType, err := api.ID(URL)
 	if err != nil {
-		fmt.Println("ERROR: ", err)
 		return err
 	}
 	mediaName, _ := api.MediaName(slug, vType)
@@ -229,6 +229,7 @@ func (api *Client) Downloader(URL, destPath, quality string, start, end time.Dur
 	switch vType {
 	case TypeVOD:
 		if err := api.DownloadVideo(URL, slug, quality, finalDest, start, end, progressCh); err != nil {
+			fmt.Println(err)
 			return err
 		}
 	case TypeClip:
@@ -240,7 +241,7 @@ func (api *Client) Downloader(URL, destPath, quality string, start, end time.Dur
 			return err
 		}
 	}
-	// fmt.Println("DONE, SENDING THE URL TO S", URL)
+	// send that download is completed to the chan
 	progressCh <- types.ProgressBarState{
 		Text:   URL,
 		IsDone: true,

@@ -145,7 +145,6 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 					isAdFound = true
 				}
 			}
-
 			// case <-progressTicker.C:
 			// 	bar.Add(0)
 		}
