@@ -13,7 +13,7 @@ import (
 	"github.com/Kostaaa1/twitchdl/types"
 )
 
-func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
+func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err

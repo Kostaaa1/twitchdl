@@ -120,10 +120,16 @@ type Colors struct {
 	Timestamp string `json:"timestamp"`
 }
 
-type ProgressBarState struct {
+type SpinnerState struct {
 	Text        string
-	ByteCount   int64
+	ByteCount   float64
 	IsDone      bool
 	StartTime   time.Time
 	CurrentTime float64
+}
+
+type ProgresbarChanData struct {
+	Text   string
+	Bytes  int64
+	IsDone bool
 }

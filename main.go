@@ -45,7 +45,7 @@ func main() {
 		}
 	}
 	urls := strings.Split(cfg.inputURL, ",")
-	progressCh := make(chan types.ProgressBarState, len(urls))
+	progressCh := make(chan types.ProgresbarChanData, len(urls))
 
 	go func() {
 		spinner.Open(urls, progressCh)
@@ -60,6 +60,6 @@ func main() {
 			panic(err)
 		}
 	}
-	time.Sleep(1 * time.Second)
-	fmt.Println("📂 Finished downloading")
+	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("Finished downloading")
 }

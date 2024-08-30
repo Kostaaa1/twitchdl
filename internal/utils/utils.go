@@ -10,40 +10,26 @@ import (
 	"time"
 )
 
-// export function convertBytes(bytes: string) {
-//   const b = Number(bytes);
-//   const KB = b / 1024;
-//   const MB = KB / 1024;
-//   const GB = MB / 1024;
-//   const TB = GB / 1024;
-
-//   const result = {
-//     bytes,
-//     KB: KB.toFixed(2),
-//     MB: MB.toFixed(2),
-//     GB: GB.toFixed(2),
-//     TB: TB.toFixed(2),
-//   };
-
-//   const index = Object.entries(result).findIndex((x) => x[1][0] === "0");
-//   const output = Object.entries(result)[index - 1];
-//   return output[1].split(".")[0] + output[0];
-// }
-
-func ConvertBytes(b int64) string {
+// this is bad, optimize this
+func ConvertBytes(b float64) string {
 	units := []string{"B", "KB", "MB", "GB", "TB"}
-	values := make([]int64, len(units))
-	values[0] = b
-	for i := 1; i < len(units); i++ {
-		values[i] = values[i-1] / 1024
+	i := 0
+	for b >= 1024 && i < len(units)-1 {
+		b /= 1024
+		i++
 	}
-	for i := len(units) - 1; i >= 0; i-- {
-		if values[i] > 0 {
-			return fmt.Sprintf("%d %s", values[i], units[i])
-		}
-	}
-	return ""
+	return fmt.Sprintf("%.01f %s", b, units[i])
 }
+
+// func ConvertBytes(b float64) string {
+// 	if b < 1 {
+// 		return fmt.Sprintf("%.01f B", b)
+// 	}
+// 	units := []string{"B", "KB", "MB", "GB", "TB"}
+// 	exp := math.Min(float64(len(units)-1), math.Floor(math.Log2(b)/10))
+// 	value := b / math.Pow(1024, exp)
+// 	return fmt.Sprintf("%.01f %s", value, units[int(exp)])
+// }
 
 func CalcSpeed(b int64, elapsedTime float64) string {
 	units := []string{"B", "KB", "MB", "GB", "TB"}

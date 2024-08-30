@@ -16,21 +16,21 @@ import (
 type errMsg error
 
 type model struct {
-	data         []types.ProgressBarState
-	progressChan chan types.ProgressBarState
+	data         []types.SpinnerState
+	progressChan chan types.ProgresbarChanData
 	spinner      spinner.Model
 	quitting     bool
 	err          error
 }
 
-func initialModel(titles []string, progChan chan types.ProgressBarState) model {
+func initialModel(titles []string, progChan chan types.ProgresbarChanData) model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	var state []types.ProgressBarState
+	var state []types.SpinnerState
 	for i := range titles {
-		state = append(state, types.ProgressBarState{
+		state = append(state, types.SpinnerState{
 			Text:        titles[i],
 			IsDone:      false,
 			ByteCount:   0,
@@ -50,7 +50,7 @@ func (m model) Init() tea.Cmd {
 }
 
 type chanMsg struct {
-	Data types.ProgressBarState
+	Data types.ProgresbarChanData
 }
 
 func (m *model) waitForMsg() tea.Cmd {
@@ -77,7 +77,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.data {
 			if m.data[i].Text == msg.Data.Text {
-				m.data[i].ByteCount += msg.Data.ByteCount
+				m.data[i].ByteCount += float64(msg.Data.Bytes)
 				m.data[i].CurrentTime = time.Since(m.data[i].StartTime).Seconds()
 				// if m.data[i].CurrentTime > 0 {
 				// m.data[i].KBsPerSecond = float64(m.data[i].ByteCount) / (1024.0 * 1024.0) / m.data[i].CurrentTime
@@ -119,7 +119,7 @@ func (m model) View() string {
 	return str.String()
 }
 
-func Open(titles []string, progressChan chan types.ProgressBarState) {
+func Open(titles []string, progressChan chan types.ProgresbarChanData) {
 	p := tea.NewProgram(initialModel(titles, progressChan))
 	if _, err := p.Run(); err != nil {
 		fmt.Println(err)

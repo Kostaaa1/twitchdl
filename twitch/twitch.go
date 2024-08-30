@@ -179,7 +179,7 @@ func (c *Client) GetToken() string {
 
 type progressWriter struct {
 	writer     io.Writer
-	progressCh chan<- types.ProgressBarState
+	progressCh chan<- types.ProgresbarChanData
 	slug       string
 }
 
@@ -187,9 +187,9 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	n, err := pw.writer.Write(p)
 	if err == nil {
 		select {
-		case pw.progressCh <- types.ProgressBarState{
-			Text:      pw.slug,
-			ByteCount: int64(n),
+		case pw.progressCh <- types.ProgresbarChanData{
+			Text:  pw.slug,
+			Bytes: int64(n),
 		}:
 		default:
 		}
@@ -197,7 +197,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
+func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
 	cLimit := len(urls)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, cLimit)
@@ -218,7 +218,7 @@ func (c *Client) BatchDownload(urls []string, quality, destpath string, start, e
 	return nil
 }
 
-func (api *Client) Downloader(URL, destPath, quality string, start, end time.Duration, progressCh chan types.ProgressBarState) error {
+func (api *Client) Downloader(URL, destPath, quality string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
 	slug, vType, err := api.ID(URL)
 	if err != nil {
 		return err
@@ -242,7 +242,7 @@ func (api *Client) Downloader(URL, destPath, quality string, start, end time.Dur
 		}
 	}
 	// send that download is completed to the chan
-	progressCh <- types.ProgressBarState{
+	progressCh <- types.ProgresbarChanData{
 		Text:   URL,
 		IsDone: true,
 	}
