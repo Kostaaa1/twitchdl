@@ -23,6 +23,7 @@ type Client struct {
 	gqlURL      string
 	helixURL    string
 	usherURL    string
+	decapiURL   string
 	gqlClientID string
 	mu          sync.Mutex
 }
@@ -87,6 +88,7 @@ func New() *Client {
 		gqlClientID: "kimne78kx3ncx6brgo4mv6wki5h1ko",
 		usherURL:    "https://usher.ttvnw.net",
 		helixURL:    "https://api.twitch.tv/helix",
+		decapiURL:   "https://decapi.me/twitch/uptime",
 		mu:          sync.Mutex{},
 	}
 }
@@ -152,8 +154,8 @@ func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 	return nil
 }
 
-func IsChannelLive(channelName string) (bool, error) {
-	u := fmt.Sprintf("https://decapi.me/twitch/uptime/%s", channelName)
+func (c *Client) IsChannelLive(channelName string) (bool, error) {
+	u := fmt.Sprintf("%s/%s", c.decapiURL, channelName)
 	resp, err := http.Get(u)
 	if err != nil {
 		return false, fmt.Errorf("failed getting the response from URL: %s. \nError: %s", u, err)
@@ -189,7 +191,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 		select {
 		case pw.progressCh <- types.ProgresbarChanData{
 			Text:  pw.slug,
-			Bytes: int64(n),
+			Bytes: n,
 		}:
 		default:
 		}
@@ -225,6 +227,12 @@ func (api *Client) Downloader(URL, destPath, quality string, start, end time.Dur
 	}
 	mediaName, _ := api.MediaName(slug, vType)
 	finalDest := file.NewPathname(destPath, mediaName)
+
+	f, err := os.Create(finalDest)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
 	switch vType {
 	case TypeVOD:

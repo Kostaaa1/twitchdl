@@ -27,7 +27,7 @@ func prepareCommands(w int) string {
 		{cmdType: "key", cmd: "ctrl+←", help: "prev chat"},
 		{cmdType: "key", cmd: "shift+ctrl+→", help: "move chat forward"},
 		{cmdType: "key", cmd: "shift+ctrl+←", help: "move chat backwards"},
-		{cmdType: "key", cmd: "tab", help: "close commands window"},
+		{cmdType: "key", cmd: "tab", help: "open/close commands (this) window"},
 		{cmdType: "key", cmd: "ctrl+o", help: "opens livestream in media player"},
 		{cmdType: "key", cmd: "ctrl+i", help: "opens window with followed livestreams"},
 

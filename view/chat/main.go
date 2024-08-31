@@ -344,7 +344,6 @@ func (m *Model) removeActiveChat() {
 		}
 	}
 	viper.Set("openedChats", newOpenedChats)
-	// viper.WriteConfig()
 	m.chats = chats
 }
 
@@ -363,7 +362,6 @@ func (m *Model) updateChatViewport(chat *types.Chat) {
 	m.viewport.GotoBottom()
 }
 
-// TODO :
 func (m *Model) moveTabForward() {
 	openedChats := make([]string, len(m.chats))
 	for i := len(m.chats) - 1; i >= 0; i-- {

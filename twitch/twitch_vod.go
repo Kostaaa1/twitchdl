@@ -46,7 +46,6 @@ func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time
 		return err
 	}
 	defer f.Close()
-
 	pw := &progressWriter{
 		writer:     f,
 		slug:       URL,

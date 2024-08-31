@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/internal/utils"
+	"github.com/Kostaaa1/twitchdl/internal/bytecount"
 	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,7 +33,7 @@ func initialModel(titles []string, progChan chan types.ProgresbarChanData) model
 		state = append(state, types.SpinnerState{
 			Text:        titles[i],
 			IsDone:      false,
-			ByteCount:   0,
+			TotalBytes:  0,
 			StartTime:   time.Now(),
 			CurrentTime: 0,
 		})
@@ -77,11 +77,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.data {
 			if m.data[i].Text == msg.Data.Text {
-				m.data[i].ByteCount += float64(msg.Data.Bytes)
 				m.data[i].CurrentTime = time.Since(m.data[i].StartTime).Seconds()
+				m.data[i].TotalBytes += float64(msg.Data.Bytes)
+
+				// m.data[i].ByteCount.Convert()
 				// if m.data[i].CurrentTime > 0 {
 				// m.data[i].KBsPerSecond = float64(m.data[i].ByteCount) / (1024.0 * 1024.0) / m.data[i].CurrentTime
 				// }
+
 				if msg.Data.IsDone {
 					m.data[i].IsDone = true
 				}
@@ -100,6 +103,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m *model) getProgressMsg(total, ctime float64) string {
+	b := bytecount.ConvertBytes(total)
+	downloadMsg := fmt.Sprintf("(%.1f %s) [%.0fs]", b.Total, b.Unit, ctime)
+	return downloadMsg
+}
+
 func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
@@ -107,7 +116,7 @@ func (m model) View() string {
 	var str strings.Builder
 	str.WriteString("\n")
 	for i := 0; i < len(m.data); i++ {
-		downloadMsg := fmt.Sprintf("(%s) [%.0fs]", utils.ConvertBytes(m.data[i].ByteCount), m.data[i].CurrentTime)
+		downloadMsg := m.getProgressMsg(m.data[i].TotalBytes, m.data[i].CurrentTime)
 		if m.data[i].IsDone {
 			s := fmt.Sprintf("✅ %s: %s \n", m.data[i].Text, downloadMsg)
 			str.WriteString(s)

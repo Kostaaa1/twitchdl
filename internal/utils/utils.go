@@ -11,40 +11,15 @@ import (
 )
 
 // this is bad, optimize this
-func ConvertBytes(b float64) string {
-	units := []string{"B", "KB", "MB", "GB", "TB"}
-	i := 0
-	for b >= 1024 && i < len(units)-1 {
-		b /= 1024
-		i++
-	}
-	return fmt.Sprintf("%.01f %s", b, units[i])
-}
-
 // func ConvertBytes(b float64) string {
-// 	if b < 1 {
-// 		return fmt.Sprintf("%.01f B", b)
-// 	}
 // 	units := []string{"B", "KB", "MB", "GB", "TB"}
-// 	exp := math.Min(float64(len(units)-1), math.Floor(math.Log2(b)/10))
-// 	value := b / math.Pow(1024, exp)
-// 	return fmt.Sprintf("%.01f %s", value, units[int(exp)])
+// 	i := 0
+// 	for b >= 1024 && i < len(units)-1 {
+// 		b /= 1024
+// 		i++
+// 	}
+// 	return fmt.Sprintf("%.01f %s", b, units[i])
 // }
-
-func CalcSpeed(b int64, elapsedTime float64) string {
-	units := []string{"B", "KB", "MB", "GB", "TB"}
-	values := make([]int64, len(units))
-	values[0] = b
-	for i := 1; i < len(units); i++ {
-		values[i] = values[i-1] / 1024
-	}
-	for i := len(units) - 1; i >= 0; i-- {
-		if values[i] > 0 {
-			return fmt.Sprintf("%d %s", values[i], units[i])
-		}
-	}
-	return ""
-}
 
 func GetCurrentTimeFormatted() string {
 	now := time.Now()

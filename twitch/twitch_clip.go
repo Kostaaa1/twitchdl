@@ -100,50 +100,6 @@ func (c *Client) DownloadClip(slug, quality, destPath string) error {
 	return nil
 }
 
-// func (c *Client) BatchDownload(urls []string, quality, destpath string) error {
-// 	cLimit := 4
-// 	var wg sync.WaitGroup
-// 	errChan := make(chan error, len(urls))
-// 	sem := make(chan struct{}, cLimit)
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	defer cancel()
-// 	for _, URL := range urls {
-// 		wg.Add(1)
-// 		go func(URL string) {
-// 			defer wg.Done()
-// 			select {
-// 			case sem <- struct{}{}:
-// 			case <-ctx.Done():
-// 				return
-// 			}
-// 			defer func() { <-sem }()
-// 			slug, vtype, err := c.ID(URL)
-// 			if err != nil {
-// 				errChan <- err
-// 				return
-// 			}
-// 			if vtype != 0 {
-// 				errChan <- fmt.Errorf("non clip URL is provided: %s. Batches work only with clips", URL)
-// 				cancel()
-// 				return
-// 			}
-// 			if err := c.DownloadClip(slug, quality, destpath); err != nil {
-// 				errChan <- err
-// 				cancel()
-// 				return
-// 			}
-// 		}(URL)
-// 	}
-// 	wg.Wait()
-// 	close(errChan)
-// 	if len(errChan) > 0 {
-// 		for err := range errChan {
-// 			fmt.Println(err)
-// 		}
-// 	}
-// 	return nil
-// }
-
 type ClipMetadata struct {
 	Typename    string `json:"__typename"`
 	Broadcaster struct {

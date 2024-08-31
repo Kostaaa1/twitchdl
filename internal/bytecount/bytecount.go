@@ -1,35 +1,59 @@
 package bytecount
 
-type ByteCount struct {
+type Byte struct {
 	Unit  string
-	Count int
+	Total float64
 }
 
-func (bc *ByteCount) getUnits() []string {
-	return []string{"B", "KB", "MB", "GB", "TB"}
-}
-
-func (bc *ByteCount) Convert() {
-	units := bc.getUnits()
+func ConvertBytes(b float64) *Byte {
+	units := []string{"B", "KB", "MB", "GB", "TB"}
 	i := 0
-	for bc.Count >= 1024 && i < len(units)-1 {
-		bc.Count /= 1024
+	for b >= 1024 && i < len(units)-1 {
+		b /= 1024
 		i++
 	}
-	bc.Unit = units[i]
-}
-
-func (bc *ByteCount) Add(byteCount int) {
-	units := bc.getUnits()
-	c := byteCount
-	for i := 0; i < len(units); i++ {
-		if c >= 1024 {
-			c /= 1024
-		}
+	return &Byte{
+		Unit:  units[i],
+		Total: b,
 	}
-	bc.Count += c
 }
 
-func (bc *ByteCount) CalcSpeed(elapsedTime int) int {
-	return bc.Count / elapsedTime
-}
+// func ConvertBytes(b float64) string {
+// 	if b < 1 {
+// 		return fmt.Sprintf("%.01f B", b)
+// 	}
+// 	units := []string{"B", "KB", "MB", "GB", "TB"}
+// 	exp := math.Min(float64(len(units)-1), math.Floor(math.Log2(b)/10))
+// 	value := b / math.Pow(1024, exp)
+// 	return fmt.Sprintf("%.01f %s", value, units[int(exp)])
+// }
+
+// func (bc *ByteCount) getUnits() []string {
+// 	return []string{"B", "KB", "MB", "GB", "TB"}
+// }
+
+// func (bc *ByteCount) Convert() {
+// 	units := bc.getUnits()
+// 	i := 0
+// 	for bc.Total >= 1024 && i < len(units)-1 {
+// 		bc.Total /= 1024
+// 		i++
+// 	}
+// 	bc.Unit = units[i]
+// }
+
+// func (bc *ByteCount) Add(b int) {
+// 	units := []string{"B", "KB", "MB", "GB", "TB"}
+// 	i := 0
+// 	c := b
+// 	for c >= 1024 && i < len(units)-1 {
+// 		c /= 1024
+// 		i++
+// 	}
+// 	bc.Unit = units[i]
+// 	bc.Total = float64(c)
+// }
+
+// func (bc *ByteCount) CalcSpeed(elapsedTime int) int {
+// 	return bc.Total / elapsedTime
+// }
