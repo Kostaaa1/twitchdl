@@ -37,7 +37,7 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 }
 
 func (c *Client) GetStreamMasterPlaylist(channel string) (string, error) {
-	isLive, err := IsChannelLive(channel)
+	isLive, err := c.IsChannelLive(channel)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +93,7 @@ func isAdRunning(segments []string) int {
 
 // Checks if the channel is live, gets the stream media playlist, creates the file,
 func (c *Client) RecordStream(id, quality, outpath string) error {
-	isLive, err := IsChannelLive(id)
+	isLive, err := c.IsChannelLive(id)
 	if err != nil {
 		return err
 	}
