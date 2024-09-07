@@ -39,7 +39,7 @@ func parseROOMSTATE(rawMsg string) types.Room {
 			case "emote-only":
 				room.IsEmoteOnly = value == "1"
 			case "followers-only":
-				room.IsFollowersOnly = value == "-1"
+				room.FollowersOnly = value
 			case "subs-only":
 				room.IsSubsOnly = value == "1"
 			}

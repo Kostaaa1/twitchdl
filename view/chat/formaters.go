@@ -21,7 +21,8 @@ func GenerateIcon(userType string) string {
 	case "broadcaster":
 		return colorStyle("#d20f39").Render(" [] ")
 	case "mod":
-		return colorStyle("#40a02b").Render(" [⛨] ")
+		// return colorStyle("#40a02b").Render(" [⛨] ")
+		return " ✅"
 	case "vip":
 		return colorStyle("#ea76cb").Render(" [★] ")
 	case "staff":
@@ -63,16 +64,10 @@ func FormatChatMessage(message types.ChatMessage, width int) string {
 }
 
 func FormatSubMessage(message types.SubNotice, width int) string {
-	icon := GenerateIcon(message.Metadata.UserType)
 	if message.Metadata.Color == "" {
 		message.Metadata.Color = string(rand.Intn(257))
 	}
-	msg := fmt.Sprintf(
-		"%s%s: ✯ %s",
-		icon,
-		colorStyle(message.Metadata.Color).Render(message.Metadata.DisplayName),
-		message.Metadata.SystemMsg,
-	)
+	msg := fmt.Sprintf(" ✯ %s", message.Metadata.SystemMsg)
 
 	subColor := viper.GetString("colors.messages.sub")
 	box := components.NewBoxWithLabel(subColor)

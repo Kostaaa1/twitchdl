@@ -217,6 +217,7 @@ func (c *Client) BatchDownload(urls []string, quality, destpath string, start, e
 	}
 	wg.Wait()
 	close(progressCh)
+
 	return nil
 }
 

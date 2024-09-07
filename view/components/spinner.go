@@ -1,4 +1,4 @@
-package spinner
+package components
 
 import (
 	"fmt"
@@ -128,7 +128,7 @@ func (m model) View() string {
 	return str.String()
 }
 
-func Open(titles []string, progressChan chan types.ProgresbarChanData) {
+func Spinner(titles []string, progressChan chan types.ProgresbarChanData) {
 	p := tea.NewProgram(initialModel(titles, progressChan))
 	if _, err := p.Run(); err != nil {
 		fmt.Println(err)

@@ -42,7 +42,7 @@ func (c *Client) GetStreamMasterPlaylist(channel string) (string, error) {
 		return "", err
 	}
 	if !isLive {
-		return "", fmt.Errorf("the channel %s is not live currently", channel)
+		return "", fmt.Errorf("%s is offline", channel)
 	}
 
 	tok, sig, err := c.GetLivestreamCreds(channel)
@@ -98,7 +98,7 @@ func (c *Client) RecordStream(id, quality, outpath string) error {
 		return err
 	}
 	if !isLive {
-		return fmt.Errorf("the channel %s is currently offline", id)
+		return fmt.Errorf("%s is offline", id)
 	}
 
 	mediaList, err := c.GetStreamMediaPlaylist(id, quality)

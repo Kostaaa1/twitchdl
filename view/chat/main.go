@@ -57,7 +57,6 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 	if err != nil {
 		panic(err)
 	}
-
 	go func() {
 		if err := ws.Connect(cfg.Creds.AccessToken, cfg.Creds.ClientID, msgChan, cfg.OpenedChats); err != nil {
 			fmt.Println("Connection error: ", err)
@@ -107,7 +106,7 @@ func (m Model) Init() tea.Cmd {
 
 var errTimer *time.Timer
 
-func (m *Model) waitForMsg() tea.Cmd {
+func (m Model) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
 		newMsg := <-m.msgChan
 		switch newMsg.(type) {
@@ -204,14 +203,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.appendMessage(chat, FormatSubMessage(chanMsg, m.width))
 			}
 		case types.Notice:
-			chat := m.getChat(chanMsg.DisplayName)
-			if chat != nil {
-				m.appendMessage(chat, chanMsg.SystemMsg)
-			}
+			// go func() {
+			// 	m.msgChan <- errMsg{err: fmt.Errorf(chanMsg.SystemMsg)}
+			// }()
+
+			// chat := m.getChat(chanMsg.DisplayName)
+			// if chat != nil {
+			// 	m.appendMessage(chat, chanMsg.SystemMsg)
+			// }
 		}
 		return m, m.waitForMsg()
 	}
-
 	return m, tea.Batch(tiCmd)
 }
 
@@ -220,7 +222,6 @@ func (m Model) View() string {
 	main := m.labelBox.
 		SetWidth(m.viewport.Width).
 		RenderBoxWithTabs(m.chats, m.viewport.View())
-
 	if !m.showCommands {
 		b.WriteString(main)
 	} else {
@@ -331,6 +332,7 @@ func (m *Model) removeActiveChat() {
 			}
 		}
 	}
+
 	chats[newActiveId].IsActive = true
 	newActiveC := chats[newActiveId]
 	m.updateChatViewport(&newActiveC)
@@ -434,12 +436,12 @@ func (m Model) renderRoomState() string {
 	chat := m.getActiveChat()
 	style := lipgloss.NewStyle().Faint(true)
 	switch {
-	case chat.Room.IsEmoteOnly:
-		return style.Render("[Emote-Only Chat]")
-	case chat.Room.IsFollowersOnly:
+	case chat.Room.FollowersOnly != "-1":
 		return style.Render("[Followers-Only Chat]")
 	case chat.Room.IsSubsOnly:
 		return style.Render("[Subscriber-Only Chat]")
+	case chat.Room.IsEmoteOnly:
+		return style.Render("[Emote-Only Chat]")
 	default:
 		return ""
 	}

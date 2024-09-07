@@ -30,11 +30,11 @@ type RoomMetadata struct {
 }
 
 type Room struct {
-	Metadata        RoomMetadata
-	RoomID          string
-	IsEmoteOnly     bool
-	IsFollowersOnly bool
-	IsSubsOnly      bool
+	Metadata      RoomMetadata
+	RoomID        string
+	IsEmoteOnly   bool
+	FollowersOnly string
+	IsSubsOnly    bool
 }
 
 type NoticeMetadata struct {

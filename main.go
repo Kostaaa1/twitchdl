@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/internal/config"
-	"github.com/Kostaaa1/twitchdl/spinner"
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/view/root"
+	"github.com/Kostaaa1/twitchdl/view/chat"
+	"github.com/Kostaaa1/twitchdl/view/components"
 )
 
 type Config struct {
@@ -28,6 +28,7 @@ func main() {
 	}
 
 	var cfg Config
+
 	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}")
 	flag.StringVar(&cfg.quality, "quality", "best", "[best 1080 720 480 360 160 worst]. Example: -quality 1080p (optional)")
 	flag.DurationVar(&cfg.start, "start", time.Duration(0), "The start of the VOD subset. It only works with VODs and it needs to be in this format: '1h30m0s' (optional)")
@@ -40,17 +41,16 @@ func main() {
 		if len(os.Args) > 1 {
 			cfg.inputURL = os.Args[1]
 		} else {
-			root.Open(twitch, jsonCfg)
+			// root.Open(twitch, jsonCfg)
+			chat.Open(twitch, jsonCfg)
 			return
 		}
 	}
 	urls := strings.Split(cfg.inputURL, ",")
 	progressCh := make(chan types.ProgresbarChanData, len(urls))
-
 	go func() {
-		spinner.Open(urls, progressCh)
+		components.Spinner(urls, progressCh)
 	}()
-
 	if len(urls) > 1 {
 		if err := twitch.BatchDownload(urls, cfg.quality, cfg.output, cfg.start, cfg.end, progressCh); err != nil {
 			panic(err)

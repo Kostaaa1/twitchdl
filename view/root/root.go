@@ -51,7 +51,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		h, v := docStyle.GetFrameSize()
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
-
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
@@ -66,7 +65,6 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 		item{title: "Chats", desc: "Open chats."},
 		item{title: "???", desc: "Add list."},
 	}
-
 	d := list.NewDefaultDelegate()
 	d.Styles.SelectedTitle = d.Styles.SelectedTitle.Foreground(mainColor).BorderLeftForeground(mainColor)
 	d.Styles.SelectedDesc = d.Styles.SelectedDesc.Foreground(mainColor).BorderLeftForeground(mainColor)
