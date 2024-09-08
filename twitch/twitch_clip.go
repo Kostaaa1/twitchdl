@@ -83,20 +83,19 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 	return URL, nil
 }
 
-func (c *Client) DownloadClip(slug, quality, destPath string) error {
+func (c *Client) DownloadClip(slug, quality, destPath string, pw *progressWriter) error {
 	usherURL, err := c.GetClipUsherURL(slug, quality)
 	if err != nil {
 		return err
 	}
-
 	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-	// if err := c.downloadSegment(req, destPath); err != nil {
-	// 	return err
-	// }
+	if err := c.downloadSegment(destPath, req, pw); err != nil {
+		return err
+	}
 	return nil
 }
 

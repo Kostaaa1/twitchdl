@@ -1,6 +1,7 @@
 package twitch
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -92,61 +93,63 @@ func isAdRunning(segments []string) int {
 }
 
 // Checks if the channel is live, gets the stream media playlist, creates the file,
-func (c *Client) RecordStream(id, quality, outpath string) error {
-	isLive, err := c.IsChannelLive(id)
+func (c *Client) RecordStream(slug, quality, destpath string, pw *progressWriter) error {
+	isLive, err := c.IsChannelLive(slug)
 	if err != nil {
 		return err
 	}
 	if !isLive {
-		return fmt.Errorf("%s is offline", id)
+		return fmt.Errorf("%s is offline", slug)
 	}
 
-	mediaList, err := c.GetStreamMediaPlaylist(id, quality)
+	mediaList, err := c.GetStreamMediaPlaylist(slug, quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
 
-	destPath := fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, id, time.Now().Format("2006-01-02-15-04-05"))
-	f, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer f.Close()
-
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	progressTicker := time.NewTicker(200 * time.Second)
-	defer progressTicker.Stop()
 
-	isAdFound := false
+	tickCount := 0
+	var halfBytes *bytes.Reader
 
 	for {
 		select {
 		case <-ticker.C:
-			b, err := c.Fetch(mediaList.URL)
+			tickCount++
+
+			f, err := os.OpenFile(destpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				return fmt.Errorf("failed to fetch playlist: %w", err)
+				return err
 			}
-			segments := strings.Split(string(b), "\n")
-			discontinuityID := isAdRunning(segments)
-			if discontinuityID == 0 {
-				isAdFound = false
-				// tsURL := segments[len(segments)-2]
-				// req, err := http.NewRequest(http.MethodGet, tsURL, nil)
-				// if err != nil {
-				// 	log.Println("failed to initiate the request")
-				// }
-				// if err := c.downloadSegment(req, destPath); err != nil {
-				// 	log.Printf("failed to download and write segment: %v", err)
-				// }
-			} else {
-				if !isAdFound {
-					fmt.Printf("\n[Please be patient] found twitch AD at %d position, this can take a while...\n", discontinuityID)
-					isAdFound = true
+			defer f.Close()
+
+			if tickCount%2 != 0 {
+				b, err := c.Fetch(mediaList.URL)
+				if err != nil {
+					return fmt.Errorf("failed to fetch playlist: %w", err)
+				}
+				segments := strings.Split(string(b), "\n")
+				tsURL := segments[len(segments)-2]
+
+				bodyBytes, err := c.Fetch(tsURL)
+				if err != nil {
+					return err
+				}
+
+				half := len(bodyBytes) / 2
+				halfBytes = bytes.NewReader(bodyBytes[half:])
+				if _, err := io.Copy(pw, bytes.NewReader(bodyBytes[:half])); err != nil {
+					return err
 				}
 			}
-			// case <-progressTicker.C:
-			// 	bar.Add(0)
+
+			if tickCount%2 == 0 && halfBytes.Len() > 0 {
+				if _, err := io.Copy(pw, halfBytes); err != nil {
+					return err
+				}
+				halfBytes.Reset([]byte{})
+			}
 		}
 	}
 }

@@ -32,10 +32,10 @@ func initialModel(titles []string, progChan chan types.ProgresbarChanData) model
 	for i := range titles {
 		state = append(state, types.SpinnerState{
 			Text:        titles[i],
-			IsDone:      false,
 			TotalBytes:  0,
 			StartTime:   time.Now(),
 			CurrentTime: 0,
+			IsDone:      false,
 		})
 	}
 	return model{
@@ -91,7 +91,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
-
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, tea.Batch(cmd, m.waitForMsg())
@@ -113,9 +112,17 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
+
 	var str strings.Builder
 	str.WriteString("\n")
+
 	for i := 0; i < len(m.data); i++ {
+		if m.data[i].Error != nil {
+			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.data[i].Error)
+			str.WriteString(s)
+			continue
+		}
+
 		downloadMsg := m.getProgressMsg(m.data[i].TotalBytes, m.data[i].CurrentTime)
 		if m.data[i].IsDone {
 			s := fmt.Sprintf("✅ %s: %s \n", m.data[i].Text, downloadMsg)

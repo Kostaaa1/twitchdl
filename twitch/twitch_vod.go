@@ -5,15 +5,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
-
-	"github.com/Kostaaa1/twitchdl/types"
 )
 
-func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
+func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Duration, pw *progressWriter) error {
 	token, sig, err := c.GetVideoCredentials(id)
 	if err != nil {
 		return err
@@ -33,23 +30,14 @@ func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time
 	var segmentDuration float64 = 10
 	s := int(start.Seconds()/segmentDuration) * 2
 	e := int(end.Seconds()/segmentDuration) * 2
+
 	var segmentLines []string
 	lines := strings.Split(string(playlist), "\n")[8:]
+
 	if e == 0 {
 		segmentLines = lines[s:]
 	} else {
 		segmentLines = lines[s:e]
-	}
-
-	f, err := os.Create(dstPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	pw := &progressWriter{
-		writer:     f,
-		slug:       URL,
-		progressCh: progressCh,
 	}
 
 	for _, tsFile := range segmentLines {
@@ -70,6 +58,7 @@ func (c *Client) DownloadVideo(URL, id, quality, dstPath string, start, end time
 			}
 		}
 	}
+
 	return nil
 }
 

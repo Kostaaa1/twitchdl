@@ -123,9 +123,10 @@ type Colors struct {
 type SpinnerState struct {
 	Text        string
 	TotalBytes  float64
-	IsDone      bool
 	StartTime   time.Time
 	CurrentTime float64
+	IsDone      bool
+	Error       error
 }
 
 type ProgresbarChanData struct {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 )
 
 func Exists(filePath string) bool {
@@ -13,8 +12,8 @@ func Exists(filePath string) bool {
 }
 
 func NewPathname(dstPath, filename string) string {
-	re := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
-	filename = re.ReplaceAllString(filename, "_")
+	// re := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f]`)
+	// filename = re.ReplaceAllString(filename, "_")
 	filePath := filepath.Join(dstPath, fmt.Sprintf("%s.mp4", filename))
 	counter := 1
 	for Exists(filePath) {

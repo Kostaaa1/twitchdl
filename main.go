@@ -28,7 +28,6 @@ func main() {
 	}
 
 	var cfg Config
-
 	flag.StringVar(&cfg.inputURL, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}")
 	flag.StringVar(&cfg.quality, "quality", "best", "[best 1080 720 480 360 160 worst]. Example: -quality 1080p (optional)")
 	flag.DurationVar(&cfg.start, "start", time.Duration(0), "The start of the VOD subset. It only works with VODs and it needs to be in this format: '1h30m0s' (optional)")
@@ -46,11 +45,22 @@ func main() {
 			return
 		}
 	}
+
 	urls := strings.Split(cfg.inputURL, ",")
 	progressCh := make(chan types.ProgresbarChanData, len(urls))
+
 	go func() {
-		components.Spinner(urls, progressCh)
+		slugs := make([]string, len(urls))
+		for i, url := range urls {
+			slug, _, err := twitch.ID(url)
+			if err != nil {
+				panic(err)
+			}
+			slugs[i] = slug
+		}
+		components.Spinner(slugs, progressCh)
 	}()
+
 	if len(urls) > 1 {
 		if err := twitch.BatchDownload(urls, cfg.quality, cfg.output, cfg.start, cfg.end, progressCh); err != nil {
 			panic(err)
@@ -60,6 +70,8 @@ func main() {
 			panic(err)
 		}
 	}
+
 	time.Sleep(500 * time.Millisecond)
 	fmt.Printf("Finished downloading")
+	fmt.Printf("\033[?25h")
 }
