@@ -15,8 +15,17 @@ import (
 
 type errMsg error
 
+type SpinnerState struct {
+	Text        string
+	TotalBytes  float64
+	StartTime   time.Time
+	ElapsedTime float64
+	IsDone      bool
+	Error       error
+}
+
 type model struct {
-	data         []types.SpinnerState
+	state        []SpinnerState
 	progressChan chan types.ProgresbarChanData
 	spinner      spinner.Model
 	quitting     bool
@@ -28,21 +37,25 @@ func initialModel(titles []string, progChan chan types.ProgresbarChanData) model
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	var state []types.SpinnerState
+	return model{
+		spinner:      s,
+		state:        initSpinnerState(titles),
+		progressChan: progChan,
+	}
+}
+
+func initSpinnerState(titles []string) []SpinnerState {
+	var state []SpinnerState
 	for i := range titles {
-		state = append(state, types.SpinnerState{
+		state = append(state, SpinnerState{
 			Text:        titles[i],
 			TotalBytes:  0,
 			StartTime:   time.Now(),
-			CurrentTime: 0,
+			ElapsedTime: 0,
 			IsDone:      false,
 		})
 	}
-	return model{
-		spinner:      s,
-		data:         state,
-		progressChan: progChan,
-	}
+	return state
 }
 
 func (m model) Init() tea.Cmd {
@@ -50,12 +63,12 @@ func (m model) Init() tea.Cmd {
 }
 
 type chanMsg struct {
-	Data types.ProgresbarChanData
+	types.ProgresbarChanData
 }
 
 func (m *model) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
-		return chanMsg{Data: <-m.progressChan}
+		return chanMsg{ProgresbarChanData: <-m.progressChan}
 	}
 }
 
@@ -75,18 +88,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case chanMsg:
-		for i := range m.data {
-			if m.data[i].Text == msg.Data.Text {
-				m.data[i].CurrentTime = time.Since(m.data[i].StartTime).Seconds()
-				m.data[i].TotalBytes += float64(msg.Data.Bytes)
+		for i := range m.state {
+			if m.state[i].Text == msg.Text {
+				// m.state[i].CurrentTime = time.Since(m.state[i].StartTime).Seconds()
+				m.state[i].TotalBytes += float64(msg.Bytes)
 
-				// m.data[i].ByteCount.Convert()
-				// if m.data[i].CurrentTime > 0 {
-				// m.data[i].KBsPerSecond = float64(m.data[i].ByteCount) / (1024.0 * 1024.0) / m.data[i].CurrentTime
+				// m.state[i].ByteCount.Convert()
+				// if m.state[i].CurrentTime > 0 {
+				// m.state[i].KBsPerSecond = float64(m.state[i].ByteCount) / (1024.0 * 1024.0) / m.state[i].CurrentTime
 				// }
 
-				if msg.Data.IsDone {
-					m.data[i].IsDone = true
+				if msg.IsDone {
+					m.state[i].IsDone = true
 				}
 				break
 			}
@@ -99,6 +112,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, tea.Batch(cmd, m.waitForMsg())
+	}
+}
+
+func (m *model) updateTime() {
+	for i := range m.state {
+		m.state[i].ElapsedTime = time.Since(m.state[i].StartTime).Seconds()
 	}
 }
 
@@ -116,19 +135,20 @@ func (m model) View() string {
 	var str strings.Builder
 	str.WriteString("\n")
 
-	for i := 0; i < len(m.data); i++ {
-		if m.data[i].Error != nil {
-			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.data[i].Error)
+	for i := 0; i < len(m.state); i++ {
+		if m.state[i].Error != nil {
+			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.state[i].Error)
 			str.WriteString(s)
 			continue
 		}
 
-		downloadMsg := m.getProgressMsg(m.data[i].TotalBytes, m.data[i].CurrentTime)
-		if m.data[i].IsDone {
-			s := fmt.Sprintf("✅ %s: %s \n", m.data[i].Text, downloadMsg)
+		downloadMsg := m.getProgressMsg(m.state[i].TotalBytes, m.state[i].ElapsedTime)
+
+		if m.state[i].IsDone {
+			s := fmt.Sprintf("✅ %s: %s \n", m.state[i].Text, downloadMsg)
 			str.WriteString(s)
 		} else {
-			s := fmt.Sprintf(" %s%s: %s \n", m.spinner.View(), m.data[i].Text, downloadMsg)
+			s := fmt.Sprintf(" %s%s: %s \n", m.spinner.View(), m.state[i].Text, downloadMsg)
 			str.WriteString(s)
 		}
 	}

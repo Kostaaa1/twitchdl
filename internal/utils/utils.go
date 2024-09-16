@@ -36,6 +36,10 @@ func ParseTimestamp(v string) string {
 	return formatted
 }
 
+func Capitalize(v string) string {
+	return strings.ToUpper(v[:1]) + v[1:]
+}
+
 func RemoveCursor() {
 	fmt.Printf("\033[?25l")
 	sigs := make(chan os.Signal, 1)
@@ -45,8 +49,4 @@ func RemoveCursor() {
 		fmt.Printf("\033[?25h")
 		os.Exit(0)
 	}()
-}
-
-func Capitalize(v string) string {
-	return strings.ToUpper(v[:1]) + v[1:]
 }

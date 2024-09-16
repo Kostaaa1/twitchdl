@@ -8,12 +8,6 @@ import (
 // ////////////////////////
 var supportedQualities = []string{"best", "1080p60", "720p60", "480p30", "360p30", "160p30", "worst"}
 
-// func contains(qualitiesMap map[string]struct{}, quality string) bool {
-// 	for  _, q := range(qualitiesMap) {
-// 		if strings.HasPrefix()
-// 	}
-// }
-
 func PrintQualities() string {
 	return fmt.Sprintf("Supported qualities: [%s] ", strings.Join(supportedQualities, " "))
 }

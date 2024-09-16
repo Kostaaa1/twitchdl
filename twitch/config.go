@@ -1,81 +1,17 @@
-package types
+package twitch
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/Kostaaa1/twitchdl/internal/file"
+	"github.com/spf13/viper"
 )
 
-type Metadata struct {
-	Color        string
-	DisplayName  string
-	IsMod        bool
-	IsSubscriber bool
-	UserType     string
-}
-
-type ChatMessageMetadata struct {
-	Metadata
-	RoomID         string
-	IsFirstMessage bool
-	Timestamp      string
-}
-
-type ChatMessage struct {
-	Metadata ChatMessageMetadata
-	Message  string
-}
-
-type RoomMetadata struct {
-	Metadata
-	Channel string
-}
-
-type Room struct {
-	Metadata      RoomMetadata
-	RoomID        string
-	IsEmoteOnly   bool
-	FollowersOnly string
-	IsSubsOnly    bool
-}
-
-type NoticeMetadata struct {
-	Metadata
-	MsgID     string
-	RoomID    string
-	SystemMsg string
-	Timestamp string
-	UserID    string
-}
-
-type RaidNotice struct {
-	Metadata         NoticeMetadata
-	ParamDisplayName string
-	ParamLogin       string
-	ViewerCount      int
-}
-
-type SubGiftNotice struct {
-	Metadata             NoticeMetadata
-	Months               int
-	RecipientDisplayName string
-	RecipientID          string
-	RecipientName        string
-	SubPlan              string
-}
-
-type SubNotice struct {
-	Metadata  NoticeMetadata
-	Months    int
-	SubPlan   string
-	WasGifted bool
-}
-
-type Notice struct {
-	MsgID       string
-	DisplayName string
-	SystemMsg   string
-}
-
-type JsonConfig struct {
+type Config struct {
 	OpenedChats     []string  `json:"openedChats"`
 	BroadcasterType string    `json:"broadcasterType"`
 	Colors          Colors    `json:"colors"`
@@ -120,8 +56,62 @@ type Colors struct {
 	Timestamp string `json:"timestamp"`
 }
 
-type ProgresbarChanData struct {
-	Text   string
-	Bytes  int
-	IsDone bool
+func GetConfig() (*Config, error) {
+	var data Config
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	p := filepath.Join(wd, "config.json")
+
+	if !file.Exists(p) {
+		f, err := os.Create(p)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		b, err := json.MarshalIndent(data, "", " ")
+		if err != nil {
+			return nil, err
+		}
+		if _, err := f.Write(b); err != nil {
+			return nil, err
+		}
+	} else {
+		viper.SetConfigName("config")
+		viper.SetConfigType("json")
+		viper.AddConfigPath(".")
+		err := viper.ReadInConfig()
+		if err != nil {
+			return nil, err
+		}
+		viper.Unmarshal(&data)
+
+	}
+	return &data, nil
+}
+
+func ValidateCreds() error {
+	cfg, err := GetConfig()
+	if err != nil {
+		return err
+	}
+	errors := []string{}
+	if cfg.Creds.AccessToken == "" {
+		errors = append(errors, "AccessToken")
+	}
+	if cfg.Creds.ClientSecret == "" {
+		errors = append(errors, "ClientSecret")
+	}
+	if cfg.Creds.ClientID == "" {
+		errors = append(errors, "ClientID")
+	}
+	if len(errors) > 0 {
+		for _, err := range errors {
+			msg := fmt.Sprintf("missing %s from config.json", err)
+			return fmt.Errorf(msg)
+		}
+	}
+	return nil
 }

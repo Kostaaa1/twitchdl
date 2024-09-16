@@ -16,10 +16,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type NewChannelMessage struct {
-	Data interface{}
-}
-
 type Model struct {
 	twitch              *twitch.Client
 	ws                  *WebSocketClient
@@ -30,7 +26,7 @@ type Model struct {
 	height              int
 	msgChan             chan interface{}
 	chats               []types.Chat
-	showCommands        bool
+	displayCommands     bool
 	commandsWindowWidth int
 	err                 error
 }
@@ -79,7 +75,7 @@ func Open(twitch *twitch.Client, cfg *types.JsonConfig) {
 		labelBox:            components.NewBoxWithLabel(cfg.Colors.Primary),
 		viewport:            vp,
 		textinput:           t,
-		showCommands:        false,
+		displayCommands:     false,
 		commandsWindowWidth: 32,
 	}
 
@@ -105,6 +101,10 @@ func (m Model) Init() tea.Cmd {
 }
 
 var errTimer *time.Timer
+
+type NewChannelMessage struct {
+	Data interface{}
+}
 
 func (m Model) waitForMsg() tea.Cmd {
 	return func() tea.Msg {
@@ -176,8 +176,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}()
 		case tea.KeyTab:
-			m.showCommands = !m.showCommands
-			if m.showCommands {
+			m.displayCommands = !m.displayCommands
+			if m.displayCommands {
 				m.viewport.Width = m.width - m.commandsWindowWidth
 			} else {
 				m.viewport.Width = m.width
@@ -206,7 +206,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// go func() {
 			// 	m.msgChan <- errMsg{err: fmt.Errorf(chanMsg.SystemMsg)}
 			// }()
-
 			// chat := m.getChat(chanMsg.DisplayName)
 			// if chat != nil {
 			// 	m.appendMessage(chat, chanMsg.SystemMsg)
@@ -222,7 +221,7 @@ func (m Model) View() string {
 	main := m.labelBox.
 		SetWidth(m.viewport.Width).
 		RenderBoxWithTabs(m.chats, m.viewport.View())
-	if !m.showCommands {
+	if !m.displayCommands {
 		b.WriteString(main)
 	} else {
 		b.WriteString(lipgloss.

@@ -1,3 +1,9 @@
+Downloader
+
+1. Add individual ticker for each spinner state.
+
+Chat Model
+
 1. ADD SERIES OF MESSAGES WHEN OPENING THE CHAT.
 Connecting to...
 if (successfull)
