@@ -16,12 +16,12 @@ import (
 type errMsg error
 
 type SpinnerState struct {
-	Text        string
-	TotalBytes  float64
-	StartTime   time.Time
-	ElapsedTime float64
-	IsDone      bool
-	Error       error
+	text        string
+	totalBytes  float64
+	startTime   time.Time
+	elapsedTime float64
+	isDone      bool
+	err         error
 }
 
 type model struct {
@@ -48,11 +48,11 @@ func initSpinnerState(titles []string) []SpinnerState {
 	var state []SpinnerState
 	for i := range titles {
 		state = append(state, SpinnerState{
-			Text:        titles[i],
-			TotalBytes:  0,
-			StartTime:   time.Now(),
-			ElapsedTime: 0,
-			IsDone:      false,
+			text:        titles[i],
+			totalBytes:  0,
+			startTime:   time.Now(),
+			elapsedTime: 0,
+			isDone:      false,
 		})
 	}
 	return state
@@ -89,17 +89,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case chanMsg:
 		for i := range m.state {
-			if m.state[i].Text == msg.Text {
+			if m.state[i].text == msg.Text {
+				m.state[i].totalBytes += float64(msg.Bytes)
 				// m.state[i].CurrentTime = time.Since(m.state[i].StartTime).Seconds()
-				m.state[i].TotalBytes += float64(msg.Bytes)
-
 				// m.state[i].ByteCount.Convert()
 				// if m.state[i].CurrentTime > 0 {
 				// m.state[i].KBsPerSecond = float64(m.state[i].ByteCount) / (1024.0 * 1024.0) / m.state[i].CurrentTime
 				// }
 
 				if msg.IsDone {
-					m.state[i].IsDone = true
+					m.state[i].isDone = true
 				}
 				break
 			}
@@ -110,6 +109,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	default:
 		var cmd tea.Cmd
+		m.updateTime()
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, tea.Batch(cmd, m.waitForMsg())
 	}
@@ -117,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) updateTime() {
 	for i := range m.state {
-		m.state[i].ElapsedTime = time.Since(m.state[i].StartTime).Seconds()
+		m.state[i].elapsedTime = time.Since(m.state[i].startTime).Seconds()
 	}
 }
 
@@ -134,21 +134,20 @@ func (m model) View() string {
 
 	var str strings.Builder
 	str.WriteString("\n")
-
 	for i := 0; i < len(m.state); i++ {
-		if m.state[i].Error != nil {
-			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.state[i].Error)
+		if m.state[i].err != nil {
+			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.state[i].err)
 			str.WriteString(s)
 			continue
 		}
 
-		downloadMsg := m.getProgressMsg(m.state[i].TotalBytes, m.state[i].ElapsedTime)
+		downloadMsg := m.getProgressMsg(m.state[i].totalBytes, m.state[i].elapsedTime)
 
-		if m.state[i].IsDone {
-			s := fmt.Sprintf("✅ %s: %s \n", m.state[i].Text, downloadMsg)
+		if m.state[i].isDone {
+			s := fmt.Sprintf("✅ %s: %s \n", m.state[i].text, downloadMsg)
 			str.WriteString(s)
 		} else {
-			s := fmt.Sprintf(" %s%s: %s \n", m.spinner.View(), m.state[i].Text, downloadMsg)
+			s := fmt.Sprintf(" %s%s: %s \n", m.spinner.View(), m.state[i].text, downloadMsg)
 			str.WriteString(s)
 		}
 	}

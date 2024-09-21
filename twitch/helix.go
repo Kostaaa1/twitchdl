@@ -33,7 +33,6 @@ func (c *Client) GetUserInfo(loginName string) (*types.UserData, error) {
 	if err := json.Unmarshal(b, &user); err != nil {
 		return nil, err
 	}
-
 	if len(user.Data) == 0 {
 		return nil, fmt.Errorf("the channel %s does not exist", loginName)
 	}
@@ -48,7 +47,6 @@ func (c *Client) GetChannelInfo(broadcasterID string) (*types.ChannelData, error
 	}
 	req.Header.Set("Client-Id", c.config.Creds.ClientID)
 	req.Header.Set("Authorization", c.GetToken())
-
 	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
@@ -63,7 +61,6 @@ func (c *Client) GetChannelInfo(broadcasterID string) (*types.ChannelData, error
 		Data []types.ChannelData `json:"data"`
 	}
 	var channel data
-
 	if err := json.Unmarshal(b, &channel); err != nil {
 		return nil, err
 	}
@@ -78,7 +75,6 @@ func (c *Client) GetFollowedStreams(id string) (*types.Streams, error) {
 	}
 	req.Header.Set("Client-Id", c.config.Creds.ClientID)
 	req.Header.Set("Authorization", c.GetToken())
-
 	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
@@ -104,7 +100,6 @@ func (c *Client) GetStream(userId string) (*types.Streams, error) {
 	}
 	req.Header.Set("Client-Id", c.config.Creds.ClientID)
 	req.Header.Set("Authorization", c.GetToken())
-
 	resp, err := c.do(req)
 	if err != nil {
 		return nil, err

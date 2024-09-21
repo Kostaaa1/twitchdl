@@ -48,7 +48,6 @@ func main() {
 
 	urls := strings.Split(cfg.inputURL, ",")
 	progressCh := make(chan types.ProgresbarChanData, len(urls))
-
 	go func() {
 		slugs := make([]string, len(urls))
 		for i, url := range urls {
