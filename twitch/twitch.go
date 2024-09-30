@@ -180,8 +180,7 @@ func (c *Client) GetToken() string {
 }
 
 func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
-	// climit := len(urls)
-	climit := 1
+	climit := len(urls)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, climit)
 

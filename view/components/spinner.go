@@ -36,7 +36,6 @@ func initialModel(titles []string, progChan chan types.ProgresbarChanData) model
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-
 	return model{
 		spinner:      s,
 		state:        initSpinnerState(titles),
@@ -50,7 +49,6 @@ func initSpinnerState(titles []string) []SpinnerState {
 		state = append(state, SpinnerState{
 			text:        titles[i],
 			totalBytes:  0,
-			startTime:   time.Now(),
 			elapsedTime: 0,
 			isDone:      false,
 		})
@@ -90,6 +88,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.state {
 			if m.state[i].text == msg.Text {
+				if m.state[i].startTime.IsZero() {
+					m.state[i].startTime = time.Now()
+				}
 				m.state[i].totalBytes += float64(msg.Bytes)
 				// m.state[i].CurrentTime = time.Since(m.state[i].StartTime).Seconds()
 				// m.state[i].ByteCount.Convert()
@@ -108,8 +109,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, m.waitForMsg())
 
 	default:
-		var cmd tea.Cmd
 		m.updateTime()
+		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, tea.Batch(cmd, m.waitForMsg())
 	}
@@ -117,7 +118,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) updateTime() {
 	for i := range m.state {
-		m.state[i].elapsedTime = time.Since(m.state[i].startTime).Seconds()
+		if !m.state[i].isDone && m.state[i].totalBytes > 0 {
+			m.state[i].elapsedTime = time.Since(m.state[i].startTime).Seconds()
+		}
 	}
 }
 
