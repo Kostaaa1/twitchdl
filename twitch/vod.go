@@ -10,17 +10,17 @@ import (
 	"time"
 )
 
-func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Duration, pw *progressWriter) error {
-	token, sig, err := c.GetVideoCredentials(id)
+func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
+	token, sig, err := c.GetVideoCredentials(unit.Slug)
 	if err != nil {
 		return err
 	}
-	master, err := c.GetVODMasterM3u8(token, sig, id)
+	master, err := c.GetVODMasterM3u8(token, sig, unit.Slug)
 	if err != nil {
 		return err
 	}
 	urls := c.GetMediaPlaylists(master)
-	playlistURL := getURLByQuality(urls, quality)
+	playlistURL := getURLByQuality(urls, unit.Quality)
 
 	playlist, err := c.FetchMediaPlaylist(playlistURL)
 	if err != nil {
@@ -28,8 +28,8 @@ func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Dura
 	}
 
 	var segmentDuration float64 = 10
-	s := int(start.Seconds()/segmentDuration) * 2
-	e := int(end.Seconds()/segmentDuration) * 2
+	s := int(unit.Start.Seconds()/segmentDuration) * 2
+	e := int(unit.End.Seconds()/segmentDuration) * 2
 
 	var segmentLines []string
 	lines := strings.Split(string(playlist), "\n")[8:]
@@ -52,7 +52,7 @@ func (c *Client) DownloadVideo(id, quality, dstPath string, start, end time.Dura
 				fmt.Println("failed to create request for: ", chunkURL)
 				return err
 			}
-			if err := c.downloadSegment(dstPath, req, pw); err != nil {
+			if err := c.downloadSegment(unit.DestPath, req, pw); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 				return err
 			}

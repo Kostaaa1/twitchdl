@@ -1,18 +1,19 @@
 package qualities
 
 import (
-	"fmt"
 	"strings"
 )
 
-// ////////////////////////
-var supportedQualities = []string{"best", "1080p60", "720p60", "480p30", "360p30", "160p30", "worst"}
-
-func PrintQualities() string {
-	return fmt.Sprintf("Supported qualities: [%s] ", strings.Join(supportedQualities, " "))
+func GetQualities() []string {
+	var supportedQualities = []string{"best", "1080p60", "720p60", "480p30", "360p30", "160p30", "worst"}
+	return supportedQualities
 }
 
-// GetQuality returns the appropriate quality from the list
+func Serialized() string {
+	q := GetQualities()
+	return strings.Join(q, ", ")
+}
+
 func FindQuality(qualities []string, quality string) string {
 	if len(qualities) == 0 {
 		return quality
@@ -32,7 +33,8 @@ func FindQuality(qualities []string, quality string) string {
 }
 
 func IsQualityValid(q string) bool {
-	for _, quality := range supportedQualities {
+	qualities := GetQualities()
+	for _, quality := range qualities {
 		if strings.HasPrefix(quality, q) {
 			return true
 		}

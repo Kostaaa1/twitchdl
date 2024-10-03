@@ -36,6 +36,48 @@ const (
 	TypeLivestream
 )
 
+type MediaUnit struct {
+	Slug     string        `json:"input"`
+	Vtype    VideoType     `json:"vtype"`
+	Quality  string        `json:"quality"`
+	Start    time.Duration `json:"start"`
+	End      time.Duration `json:"end"`
+	DestPath string        `json:"destPath"`
+}
+
+func constructPathname(slug string, outpath string) (string, error) {
+	_, err := os.Stat(outpath)
+	if os.IsNotExist(err) {
+		return "", err
+	}
+
+	timestamp := time.Now().Format("2006-01-02-15-04-05")
+	filename := fmt.Sprintf("%s - %s.mp4", slug, timestamp)
+	newpath := filepath.Join(outpath, filename)
+	return newpath, nil
+}
+
+func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration) (MediaUnit, error) {
+	slug, vtype, err := c.ID(url)
+	if err != nil {
+		return MediaUnit{}, err
+	}
+
+	destPath, err := constructPathname(slug, output)
+	if err != nil {
+		return MediaUnit{}, err
+	}
+
+	return MediaUnit{
+		Slug:     slug,
+		Vtype:    vtype,
+		Quality:  quality,
+		Start:    start,
+		End:      end,
+		DestPath: destPath,
+	}, nil
+}
+
 func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
 	switch vType {
 	case TypeClip:
@@ -156,6 +198,7 @@ func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 
 func (c *Client) IsChannelLive(channelName string) (bool, error) {
 	u := fmt.Sprintf("%s/%s", c.decapiURL, channelName)
+
 	resp, err := http.Get(u)
 	if err != nil {
 		return false, fmt.Errorf("failed getting the response from URL: %s. \nError: %s", u, err)
@@ -165,10 +208,12 @@ func (c *Client) IsChannelLive(channelName string) (bool, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false, fmt.Errorf("channel %s does not exist?", channelName)
 	}
+
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, fmt.Errorf("failed reading the response Body. \nError: %s", err)
 	}
+
 	if strings.HasPrefix(string(b), "[Error from Twitch API]") {
 		return false, fmt.Errorf("unexpected error")
 	}
@@ -179,23 +224,23 @@ func (c *Client) GetToken() string {
 	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
 }
 
-func (c *Client) BatchDownload(urls []string, quality, destpath string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
-	climit := len(urls)
+func (c *Client) BatchDownload(units []MediaUnit, progressCh chan types.ProgresbarChanData) error {
+	climit := len(units)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, climit)
 
-	for _, URL := range urls {
+	for _, unit := range units {
 		wg.Add(1)
 
-		go func(URL string) {
+		go func(unit MediaUnit) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if err := c.Downloader(URL, destpath, quality, start, end, progressCh); err != nil {
+			if err := c.Downloader(unit, progressCh); err != nil {
 				fmt.Println(err)
 				return
 			}
-		}(URL)
+		}(unit)
 	}
 
 	wg.Wait()
@@ -203,62 +248,29 @@ func (c *Client) BatchDownload(urls []string, quality, destpath string, start, e
 	return nil
 }
 
-func (api *Client) constructPathname(slug string, outpath string) string {
-	timestamp := time.Now().Format("2006-01-02-15-04-05")
-	filename := fmt.Sprintf("%s - %s.mp4", slug, timestamp)
-	newpath := filepath.Join(outpath, filename)
-	return newpath
-
-	// exists := func(filePath string) bool {
-	// 	_, err := os.Stat(filePath)
-	// 	return !os.IsNotExist(err)
-	// }
-	// switch vtype {
-	// case TypeLivestream:
-	// 	timestamp := time.Now().Format("2006-01-02-15-04-05")
-	// 	return fmt.Sprintf("%s/%s - livestream-%s.mp4", outpath, slug, timestamp)
-	// default:
-	// 	filePath := filepath.Join(outpath, slug+".mp4")
-	// 	counter := 1
-	// 	for exists(filePath) {
-	// 		filePath = filepath.Join(outpath, fmt.Sprintf("%s (%v).mp4", slug, counter))
-	// 		counter++
-	// 	}
-	// 	return filePath
-	// }
-}
-
-func (api *Client) Downloader(URL, destPath, quality string, start, end time.Duration, progressCh chan types.ProgresbarChanData) error {
-	slug, vtype, err := api.ID(URL)
-	if err != nil {
-		return err
-	}
-	newpath := api.constructPathname(slug, destPath)
-	// finalDest := file.NewPathname(destPath, slug)
-	// mediaName, _ := api.MediaTitle(slug, vType)
-
-	f, err := os.Create(newpath)
+func (api *Client) Downloader(unit MediaUnit, progressCh chan types.ProgresbarChanData) error {
+	f, err := os.Create(unit.DestPath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	pw := &progressWriter{
 		writer:     f,
-		slug:       slug,
+		slug:       unit.Slug,
 		progressCh: progressCh,
 	}
 
-	switch vtype {
+	switch unit.Vtype {
 	case TypeVOD:
-		if err := api.DownloadVideo(slug, quality, newpath, start, end, pw); err != nil {
+		if err := api.DownloadVideo(unit, pw); err != nil {
 			return err
 		}
 	case TypeClip:
-		if err := api.DownloadClip(slug, quality, newpath, pw); err != nil {
+		if err := api.DownloadClip(unit, pw); err != nil {
 			return err
 		}
 	case TypeLivestream:
-		if err := api.RecordStream(slug, quality, newpath, pw); err != nil {
+		if err := api.RecordStream(unit, pw); err != nil {
 			return err
 		}
 	}

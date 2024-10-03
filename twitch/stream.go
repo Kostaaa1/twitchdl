@@ -24,12 +24,14 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 			"playerType": "site"
 		}
 	}`
+
 	type payload struct {
 		Data struct {
 			VideoPlaybackAccessToken VideoCredResponse `json:"streamPlaybackAccessToken"`
 		} `json:"data"`
 	}
 	var data payload
+
 	body := strings.NewReader(fmt.Sprintf(gqlPl, id))
 	if err := c.sendGqlLoadAndDecode(body, &data); err != nil {
 		return "", "", err
@@ -93,16 +95,16 @@ func isAdRunning(segments []string) int {
 }
 
 // Checks if the channel is live, gets the stream media playlist, creates the file,
-func (c *Client) RecordStream(slug, quality, destpath string, pw *progressWriter) error {
-	isLive, err := c.IsChannelLive(slug)
+func (c *Client) RecordStream(unit MediaUnit, pw *progressWriter) error {
+	isLive, err := c.IsChannelLive(unit.Slug)
 	if err != nil {
 		return err
 	}
 	if !isLive {
-		return fmt.Errorf("%s is offline", slug)
+		return fmt.Errorf("%s is offline", unit.Slug)
 	}
 
-	mediaList, err := c.GetStreamMediaPlaylist(slug, quality)
+	mediaList, err := c.GetStreamMediaPlaylist(unit.Slug, unit.Quality)
 	if err != nil {
 		return fmt.Errorf("failed to get media playlist: %w", err)
 	}
@@ -118,7 +120,7 @@ func (c *Client) RecordStream(slug, quality, destpath string, pw *progressWriter
 		case <-ticker.C:
 			tickCount++
 
-			f, err := os.OpenFile(destpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			f, err := os.OpenFile(unit.DestPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}

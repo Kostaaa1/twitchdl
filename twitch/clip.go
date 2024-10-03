@@ -24,12 +24,6 @@ type ClipCredentials struct {
 		Value     string `json:"value"`
 	} `json:"playbackAccessToken"`
 	VideoQualities VideoQualities `json:"videoQualities"`
-	// VideoQualities []struct {
-	// 	Typename  string  `json:"__typename"`
-	// 	FrameRate float64 `json:"frameRate"`
-	// 	Quality   string  `json:"quality"`
-	// 	SourceURL string  `json:"sourceURL"`
-	// } `json:"videoQualities"`
 }
 
 func (c *Client) extractSourceURL(videoQualities VideoQualities, quality string) string {
@@ -83,8 +77,8 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 	return URL, nil
 }
 
-func (c *Client) DownloadClip(slug, quality, destPath string, pw *progressWriter) error {
-	usherURL, err := c.GetClipUsherURL(slug, quality)
+func (c *Client) DownloadClip(unit MediaUnit, pw *progressWriter) error {
+	usherURL, err := c.GetClipUsherURL(unit.Slug, unit.Quality)
 	if err != nil {
 		return err
 	}
@@ -93,7 +87,7 @@ func (c *Client) DownloadClip(slug, quality, destPath string, pw *progressWriter
 		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-	if err := c.downloadSegment(destPath, req, pw); err != nil {
+	if err := c.downloadSegment(unit.DestPath, req, pw); err != nil {
 		return err
 	}
 	return nil
