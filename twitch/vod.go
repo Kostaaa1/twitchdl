@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"path"
 	"strings"
 	"time"
+
+	"github.com/Kostaaa1/twitchdl/m3u8"
 )
 
-func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
+func (c *Client) DownloadVOD(unit MediaUnit) error {
+	////////////// move it to single function ///////////////
 	token, sig, err := c.GetVideoCredentials(unit.Slug)
 	if err != nil {
 		return err
@@ -19,13 +20,15 @@ func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
 	if err != nil {
 		return err
 	}
-	urls := c.GetMediaPlaylists(master)
-	playlistURL := getURLByQuality(urls, unit.Quality)
-
-	playlist, err := c.FetchMediaPlaylist(playlistURL)
+	mediaList, err := master.GetVariantPlaylistByQuality(unit.Quality)
 	if err != nil {
 		return err
 	}
+	playlist, err := c.fetch(mediaList.URL)
+	if err != nil {
+		return err
+	}
+	///////////////////////////////////////////////////////
 
 	var segmentDuration float64 = 10
 	s := int(unit.Start.Seconds()/segmentDuration) * 2
@@ -33,7 +36,6 @@ func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
 
 	var segmentLines []string
 	lines := strings.Split(string(playlist), "\n")[8:]
-
 	if e == 0 {
 		segmentLines = lines[s:]
 	} else {
@@ -42,17 +44,16 @@ func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
 
 	for _, tsFile := range segmentLines {
 		if strings.HasSuffix(tsFile, ".ts") {
-			lastIndex := strings.LastIndex(playlistURL, "/")
-			if lastIndex == -1 {
-				fmt.Println("Invalid URL format")
-			}
-			chunkURL := fmt.Sprintf("%s/%s", playlistURL[:lastIndex], tsFile)
+			lastIndex := strings.LastIndex(mediaList.URL, "/")
+			chunkURL := fmt.Sprintf("%s/%s", mediaList.URL[:lastIndex], tsFile)
+
 			req, err := http.NewRequest(http.MethodGet, chunkURL, nil)
 			if err != nil {
 				fmt.Println("failed to create request for: ", chunkURL)
 				return err
 			}
-			if err := c.downloadSegment(unit.DestPath, req, pw); err != nil {
+
+			if err := c.downloadSegment(unit.DestPath, req, unit.pw); err != nil {
 				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
 				return err
 			}
@@ -60,6 +61,11 @@ func (c *Client) DownloadVideo(unit MediaUnit, pw *progressWriter) error {
 	}
 
 	return nil
+
+	// progressCh <- types.ProgresbarChanData{
+	// 	Text:   pw.slug,
+	// 	IsDone: true,
+	// }
 }
 
 type VideoCredResponse struct {
@@ -94,7 +100,7 @@ func (c *Client) GetVideoCredentials(id string) (string, string, error) {
 	return p.Data.VideoPlaybackAccessToken.Value, p.Data.VideoPlaybackAccessToken.Signature, nil
 }
 
-func (c *Client) GetVODMasterM3u8(token, sig, id string) ([]byte, error) {
+func (c *Client) GetVODMasterM3u8(token, sig, id string) (*m3u8.MasterPlaylist, error) {
 	u := fmt.Sprintf("%s/vod/%s?nauth=%s&nauthsig=%s&allow_audio_only=true&allow_source=true",
 		c.usherURL, id, token, sig)
 	resp, err := c.client.Get(u)
@@ -102,10 +108,17 @@ func (c *Client) GetVODMasterM3u8(token, sig, id string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	if s := resp.StatusCode; s < 200 || s >= 300 {
 		return nil, fmt.Errorf("unsupported status code (%v) for url: %s", s, u)
 	}
-	return io.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return m3u8.New(b), nil
+
 }
 
 type VideoMetadata struct {
@@ -158,22 +171,22 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 	return p.Data.Video, nil
 }
 
-func (c *Client) FetchMediaPlaylist(playlistURL string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, playlistURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	m3u8, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return m3u8, nil
-}
+// func (c *Client) FetchMediaPlaylist(playlistURL string) ([]byte, error) {
+// 	req, err := http.NewRequest(http.MethodGet, playlistURL, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	resp, err := c.do(req)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer resp.Body.Close()
+// 	m3u8, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return m3u8, nil
+// }
 
 func (c *Client) GetMediaPlaylists(master []byte) []string {
 	lines := strings.Split(string(master), "\n")
@@ -183,39 +196,6 @@ func (c *Client) GetMediaPlaylists(master []byte) []string {
 		if strings.HasPrefix(line, "#EXT-X-STREAM-INF") {
 			u = append(u, lines[i+1])
 		}
-	}
-	return u
-}
-
-func getURLByQuality(urls []string, quality string) string {
-	getFullURL := func(u string) string {
-		parsed, err := url.Parse(u)
-		if err != nil {
-			return ""
-		}
-		v, _ := path.Split(parsed.Path)
-		fullURL := &url.URL{
-			Scheme: "https",
-			Host:   parsed.Host,
-			Path:   v,
-		}
-		return fullURL.String()
-	}
-	if quality == "best" {
-		return urls[0]
-	}
-	if quality == "worst" {
-		return urls[len(urls)-1]
-	}
-	var u string
-	if quality != "" {
-		for _, x := range urls {
-			if strings.Contains(x, quality) {
-				u = getFullURL(x)
-			}
-		}
-	} else {
-		u = getFullURL(urls[0])
 	}
 	return u
 }

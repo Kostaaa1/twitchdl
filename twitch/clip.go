@@ -54,16 +54,19 @@ func (c *Client) GetClipData(slug string) (ClipCredentials, error) {
             }
         }
     }`
+
 	type payload struct {
 		Data struct {
 			Clip ClipCredentials `json:"clip"`
 		} `json:"data"`
 	}
 	var p payload
+
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
 	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return ClipCredentials{}, err
 	}
+
 	return p.Data.Clip, nil
 }
 
@@ -72,24 +75,28 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	sourceURL := c.extractSourceURL(clip.VideoQualities, quality)
 	URL := fmt.Sprintf("%s?sig=%s&token=%s", sourceURL, url.QueryEscape(clip.PlaybackAccessToken.Signature), url.QueryEscape(clip.PlaybackAccessToken.Value))
 	return URL, nil
 }
 
-func (c *Client) DownloadClip(unit MediaUnit, pw *progressWriter) error {
+func (c *Client) DownloadClip(unit MediaUnit) error {
 	usherURL, err := c.GetClipUsherURL(unit.Slug, unit.Quality)
 	if err != nil {
 		return err
 	}
+
 	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create the new request for stream: %s", err)
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
-	if err := c.downloadSegment(unit.DestPath, req, pw); err != nil {
+
+	if err := c.downloadSegment(unit.DestPath, req, unit.pw); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -129,15 +136,18 @@ func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
             }
         }
     }`
+
 	type payload struct {
 		Data struct {
 			Clip ClipMetadata `json:"clip"`
 		} `json:"data"`
 	}
 	var p payload
+
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
 	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return ClipMetadata{}, err
 	}
+
 	return p.Data.Clip, nil
 }

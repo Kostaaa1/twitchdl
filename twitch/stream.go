@@ -39,46 +39,49 @@ func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
 	return data.Data.VideoPlaybackAccessToken.Value, data.Data.VideoPlaybackAccessToken.Signature, nil
 }
 
-func (c *Client) GetStreamMasterPlaylist(channel string) (string, error) {
+func (c *Client) GetStreamMasterPlaylist(channel string) (*m3u8.MasterPlaylist, error) {
 	isLive, err := c.IsChannelLive(channel)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !isLive {
-		return "", fmt.Errorf("%s is offline", channel)
+		return nil, fmt.Errorf("%s is offline", channel)
 	}
 
 	tok, sig, err := c.GetLivestreamCreds(channel)
 	if err != nil {
-		return "", fmt.Errorf("failed to get livestream credentials: %w", err)
+		return nil, fmt.Errorf("failed to get livestream credentials: %w", err)
 	}
+
 	u := fmt.Sprintf("%s/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_audio_only=true&allow_source=true",
 		c.usherURL, channel, tok, sig)
 
 	resp, err := c.client.Get(u)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if s := resp.StatusCode; s < 200 || s >= 300 {
-		return "", fmt.Errorf("unsupported status code (%v) for url: %s", s, u)
+		return nil, fmt.Errorf("unsupported status code (%v) for url: %s", s, u)
 	}
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(b), nil
+
+	master := m3u8.New(b)
+	return master, nil
 }
 
-func (c *Client) GetStreamMediaPlaylist(channel, quality string) (*m3u8.List, error) {
+func (c *Client) GetStreamMediaPlaylist(channel, quality string) (*m3u8.VariantPlaylist, error) {
 	master, err := c.GetStreamMasterPlaylist(channel)
 	if err != nil {
 		return nil, err
 	}
-	parsed := m3u8.Parse(master)
-	mediaList, err := parsed.GetMediaPlaylist(quality)
+
+	mediaList, err := master.GetVariantPlaylistByQuality(quality)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get media playlist: %w", err)
 	}
@@ -94,8 +97,7 @@ func isAdRunning(segments []string) int {
 	return 0
 }
 
-// Checks if the channel is live, gets the stream media playlist, creates the file,
-func (c *Client) RecordStream(unit MediaUnit, pw *progressWriter) error {
+func (c *Client) RecordStream(unit MediaUnit) error {
 	isLive, err := c.IsChannelLive(unit.Slug)
 	if err != nil {
 		return err
@@ -127,27 +129,27 @@ func (c *Client) RecordStream(unit MediaUnit, pw *progressWriter) error {
 			defer f.Close()
 
 			if tickCount%2 != 0 {
-				b, err := c.Fetch(mediaList.URL)
+				b, err := c.fetch(mediaList.URL)
 				if err != nil {
 					return fmt.Errorf("failed to fetch playlist: %w", err)
 				}
 				segments := strings.Split(string(b), "\n")
 				tsURL := segments[len(segments)-2]
 
-				bodyBytes, err := c.Fetch(tsURL)
+				bodyBytes, err := c.fetch(tsURL)
 				if err != nil {
 					return err
 				}
 
 				half := len(bodyBytes) / 2
 				halfBytes = bytes.NewReader(bodyBytes[half:])
-				if _, err := io.Copy(pw, bytes.NewReader(bodyBytes[:half])); err != nil {
+				if _, err := io.Copy(unit.pw, bytes.NewReader(bodyBytes[:half])); err != nil {
 					return err
 				}
 			}
 
 			if tickCount%2 == 0 && halfBytes.Len() > 0 {
-				if _, err := io.Copy(pw, halfBytes); err != nil {
+				if _, err := io.Copy(unit.pw, halfBytes); err != nil {
 					return err
 				}
 				halfBytes.Reset([]byte{})

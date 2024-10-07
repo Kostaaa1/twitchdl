@@ -45,6 +45,7 @@ func (p *Prompt) UnmarshalJSON(b []byte) error {
 			return err
 		}
 	}
+
 	if aux.End != "" {
 		p.Start, err = time.ParseDuration(aux.Start)
 		if err != nil {
@@ -54,12 +55,12 @@ func (p *Prompt) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, []string) {
+func (prompt *Prompt) processInput(tw *twitch.Client) []twitch.MediaUnit {
 	if prompt.Url == "" {
 		log.Fatalf("Input was not provided.")
 	}
+
 	var units []twitch.MediaUnit
-	var slugs = make([]string, len(units))
 
 	_, err := os.Stat(prompt.Url)
 	if os.IsNotExist(err) {
@@ -70,7 +71,6 @@ func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, []str
 				continue
 			}
 			units = append(units, unit)
-			slugs = append(slugs, unit.Slug)
 		}
 	} else {
 		content, err := os.ReadFile(prompt.Url)
@@ -87,12 +87,10 @@ func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, []str
 				fmt.Println(err)
 				continue
 			}
-
 			units = append(units, unit)
-			slugs = append(slugs, unit.Slug)
 		}
 	}
-	return units, slugs
+	return units
 }
 
 func main() {
@@ -119,23 +117,32 @@ func main() {
 			return
 		}
 	}
-	units, slugs := prompt.processInput(tw)
 
+	units := prompt.processInput(tw)
 	progressCh := make(chan types.ProgresbarChanData, len(units))
+	tw.SetProgressChannel(progressCh)
+
 	go func() {
+		slugs := make([]string, len(units))
+		for i, u := range units {
+			slugs[i] = u.Slug
+		}
 		components.Spinner(slugs, progressCh)
 	}()
 
 	if len(units) > 1 {
-		if err := tw.BatchDownload(units, progressCh); err != nil {
+		if err := tw.BatchDownload(units); err != nil {
 			panic(err)
 		}
 	} else {
-		if err := tw.Downloader(units[0], progressCh); err != nil {
+		if err := tw.Downloader(units[0]); err != nil {
 			panic(err)
 		}
 	}
+
+	close(progressCh)
+
 	time.Sleep(500 * time.Millisecond)
-	fmt.Printf("Finished downloading")
+	fmt.Println("Finished downloading")
 	fmt.Printf("\033[?25h")
 }

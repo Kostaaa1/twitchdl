@@ -3,97 +3,77 @@ package m3u8
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 )
 
-type List struct {
-	Bandwidth  string `json:"BANDWIDTH"`
-	Resolution string `json:"RESOLUTION"`
-	Video      string `json:"VIDEO"`
-	FrameRate  string `json:"FRAME-RATE"`
-	URL        string
+// func extractSegmentInfo(mediaParts []string, seg *VariantPlaylist) {
+// 	fmt.Println(mediaParts, seg)
+// 	structType := reflect.TypeOf(*seg)
+// 	structValue := reflect.ValueOf(seg).Elem()
+// 	for _, part := range mediaParts {
+// 		kv := strings.Split(part, "=")
+// 		if len(kv) != 2 {
+// 			continue
+// 		}
+// 		key := kv[0]
+// 		value := kv[1]
+// 		value, err := strconv.Unquote(value)
+// 		if err != nil {
+// 			value = kv[1]
+// 		}
+// 		for structId := 0; structId < structType.NumField()-1; structId++ {
+// 			field := structType.Field(structId)
+// 			tag := field.Tag.Get("json")
+// 			if key == tag {
+// 				structFied := structValue.FieldByName(field.Name)
+// 				if structFied.IsValid() && structFied.CanSet() {
+// 					structFied.SetString(value)
+// 				}
+// 				break
+// 			}
+// 		}
+// 	}
+// }
+
+func New(fetchedPlaylist []byte) *MasterPlaylist {
+	master := &MasterPlaylist{
+		Serialized: string(fetchedPlaylist),
+	}
+	master.Parse()
+	return master
 }
 
-type MasterPlaylist struct {
-	UsherURL string
-	Lists    []List
-}
+func (m *MasterPlaylist) Parse() {
+	lines := strings.Split(m.Serialized, "\n")
 
-func extractSegmentInfo(mediaParts []string, seg *List) {
-	structType := reflect.TypeOf(*seg)
-	structValue := reflect.ValueOf(seg).Elem()
-	for _, part := range mediaParts {
-		kv := strings.Split(part, "=")
-		if len(kv) != 2 {
-			continue
-		}
-		key := kv[0]
-		value := kv[1]
-		value, err := strconv.Unquote(value)
-		if err != nil {
-			value = kv[1]
-		}
-		for structId := 0; structId < structType.NumField()-1; structId++ {
-			field := structType.Field(structId)
-			tag := field.Tag.Get("json")
-			if key == tag {
-				structFied := structValue.FieldByName(field.Name)
-				if structFied.IsValid() && structFied.CanSet() {
-					structFied.SetString(value)
-				}
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+
+		if strings.HasPrefix(line, "#EXT-X-STREAM-INF:") {
+			vl := ParseVariantPlaylist(line, lines[i+1])
+			m.Lists = append(m.Lists, vl)
+
+			i += 2
+			if i >= len(lines) {
 				break
 			}
 		}
 	}
 }
 
-func Parse(playlist string) MasterPlaylist {
-	var master MasterPlaylist
-	lines := strings.Split(playlist, "\n")
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if strings.HasPrefix(line, "#EXT-X-STREAM-INF:") {
-			var segment List
-			segment.URL = lines[i+1]
-			mediaParts := strings.Split(strings.Split(line, ":")[1], ",")
-			extractSegmentInfo(mediaParts, &segment)
-			master.Lists = append(master.Lists, segment)
-		}
-	}
-	return master
-}
-
-func (playlist *MasterPlaylist) GetMediaPlaylist(quality string) (List, error) {
-	segments := playlist.Lists
-	for i := 0; i < len(segments); i++ {
-		seg := segments[i]
+func (playlist *MasterPlaylist) GetVariantPlaylistByQuality(quality string) (VariantPlaylist, error) {
+	mediaLists := playlist.Lists
+	for i := 0; i < len(mediaLists); i++ {
+		seg := mediaLists[i]
 		if quality == "best" && seg.Video == "chunked" {
 			return seg, nil
 		}
-		if seg.Video == quality {
+		if strings.HasPrefix(seg.Video, quality) {
 			return seg, nil
 		}
 	}
-	return List{}, fmt.Errorf("could not find the provided quality for a livestream")
 
-}
-
-func (playlist *MasterPlaylist) GetQualities() []string {
-	segments := playlist.Lists
-	var qualities []string
-	for i := 0; i < len(segments); i++ {
-		seg := segments[i]
-		qualities = append(qualities, seg.Video)
-		// if quality == "best" && seg.Video == "chunked" {
-		// 	return seg, nil
-		// }
-		// if seg.Video == quality {
-		// 	return seg, nil
-		// }
-	}
-	return qualities
+	return VariantPlaylist{}, fmt.Errorf("could not find the playlist by provided quality: %s", quality)
 }
 
 func (playlist *MasterPlaylist) GetJSONSegments() []string {

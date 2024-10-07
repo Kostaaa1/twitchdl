@@ -4,16 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
-	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/internal/config"
+	"github.com/Kostaaa1/twitchdl/internal/utils"
 	"github.com/Kostaaa1/twitchdl/types"
 )
 
@@ -26,6 +27,7 @@ type Client struct {
 	decapiURL   string
 	gqlClientID string
 	mu          sync.Mutex
+	progressCh  chan types.ProgresbarChanData
 }
 
 type VideoType int
@@ -43,18 +45,7 @@ type MediaUnit struct {
 	Start    time.Duration `json:"start"`
 	End      time.Duration `json:"end"`
 	DestPath string        `json:"destPath"`
-}
-
-func constructPathname(slug string, outpath string) (string, error) {
-	_, err := os.Stat(outpath)
-	if os.IsNotExist(err) {
-		return "", err
-	}
-
-	timestamp := time.Now().Format("2006-01-02-15-04-05")
-	filename := fmt.Sprintf("%s - %s.mp4", slug, timestamp)
-	newpath := filepath.Join(outpath, filename)
-	return newpath, nil
+	pw       *progressWriter
 }
 
 func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration) (MediaUnit, error) {
@@ -63,10 +54,24 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 
-	destPath, err := constructPathname(slug, output)
+	dstPath, err := utils.ConstructPathname(output, "mp4")
 	if err != nil {
 		return MediaUnit{}, err
 	}
+
+	pw, err := c.NewProgressWriter(slug, dstPath)
+	if err != nil {
+		log.Printf("Error creating progress writer: %v", err)
+		return MediaUnit{}, err
+	}
+	if pw == nil {
+		log.Println("Progress writer is nil")
+		return MediaUnit{}, fmt.Errorf("progress writer is nil")
+	}
+	// if err != nil {
+	// 	fmt.Println("ERROR", err)
+	// 	return MediaUnit{}, err
+	// }
 
 	return MediaUnit{
 		Slug:     slug,
@@ -74,7 +79,8 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		Quality:  quality,
 		Start:    start,
 		End:      end,
-		DestPath: destPath,
+		DestPath: dstPath,
+		pw:       pw,
 	}, nil
 }
 
@@ -86,6 +92,7 @@ func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
 			return "", err
 		}
 		id = fmt.Sprintf("%s - %s", clip.Broadcaster.DisplayName, clip.Title)
+
 	case TypeVOD:
 		vod, err := c.VideoMetadata(id)
 		if err != nil {
@@ -94,6 +101,7 @@ func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
 		}
 		id = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
 	}
+
 	return id, nil
 }
 
@@ -132,6 +140,7 @@ func New() *Client {
 		helixURL:    "https://api.twitch.tv/helix",
 		decapiURL:   "https://decapi.me/twitch/uptime",
 		mu:          sync.Mutex{},
+		progressCh:  nil,
 	}
 }
 
@@ -148,7 +157,7 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *Client) Fetch(url string) ([]byte, error) {
+func (c *Client) fetch(url string) ([]byte, error) {
 	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetching m3u8 failed: %w", err)
@@ -196,9 +205,12 @@ func (c *Client) sendGqlLoadAndDecode(body *strings.Reader, v any) error {
 	return nil
 }
 
+func (c *Client) SetProgressChannel(progressCh chan types.ProgresbarChanData) {
+	c.progressCh = progressCh
+}
+
 func (c *Client) IsChannelLive(channelName string) (bool, error) {
 	u := fmt.Sprintf("%s/%s", c.decapiURL, channelName)
-
 	resp, err := http.Get(u)
 	if err != nil {
 		return false, fmt.Errorf("failed getting the response from URL: %s. \nError: %s", u, err)
@@ -224,8 +236,8 @@ func (c *Client) GetToken() string {
 	return fmt.Sprintf("Bearer %s", c.config.Creds.AccessToken)
 }
 
-func (c *Client) BatchDownload(units []MediaUnit, progressCh chan types.ProgresbarChanData) error {
-	climit := len(units)
+func (c *Client) BatchDownload(units []MediaUnit) error {
+	climit := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, climit)
 
@@ -236,7 +248,8 @@ func (c *Client) BatchDownload(units []MediaUnit, progressCh chan types.Progresb
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if err := c.Downloader(unit, progressCh); err != nil {
+
+			if err := c.Downloader(unit); err != nil {
 				fmt.Println(err)
 				return
 			}
@@ -244,78 +257,42 @@ func (c *Client) BatchDownload(units []MediaUnit, progressCh chan types.Progresb
 	}
 
 	wg.Wait()
-	close(progressCh)
 	return nil
 }
 
-func (api *Client) Downloader(unit MediaUnit, progressCh chan types.ProgresbarChanData) error {
-	f, err := os.Create(unit.DestPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	pw := &progressWriter{
-		writer:     f,
-		slug:       unit.Slug,
-		progressCh: progressCh,
-	}
-
+func (api *Client) Downloader(unit MediaUnit) error {
 	switch unit.Vtype {
 	case TypeVOD:
-		if err := api.DownloadVideo(unit, pw); err != nil {
+		if err := api.DownloadVOD(unit); err != nil {
 			return err
 		}
 	case TypeClip:
-		if err := api.DownloadClip(unit, pw); err != nil {
+		if err := api.DownloadClip(unit); err != nil {
 			return err
 		}
 	case TypeLivestream:
-		if err := api.RecordStream(unit, pw); err != nil {
+		if err := api.RecordStream(unit); err != nil {
 			return err
 		}
 	}
 
 	// Download finished, notify the spinner model.
-	progressCh <- types.ProgresbarChanData{
-		Text:   pw.slug,
-		IsDone: true,
-	}
+	// progressCh <- types.ProgresbarChanData{
+	// 	Text:   pw.slug,
+	// 	IsDone: true,
+	// }
+
 	return nil
 }
 
-type progressWriter struct {
-	writer     io.Writer
-	progressCh chan<- types.ProgresbarChanData
-	slug       string
-}
-
-func (pw *progressWriter) Write(p []byte) (int, error) {
-	n, err := pw.writer.Write(p)
-	if err == nil {
-		select {
-		case pw.progressCh <- types.ProgresbarChanData{
-			Text:  pw.slug,
-			Bytes: n,
-		}:
-		default:
-		}
-	}
-	return n, err
-}
-
-func (c *Client) downloadSegment(destPath string, req *http.Request, pw *progressWriter) error {
-	f, err := os.OpenFile(destPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
+func (c *Client) downloadSegment(dstPath string, req *http.Request, pw *progressWriter) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		fmt.Println("FAILED TO GET THE RESPONSEJ", err)
 		return fmt.Errorf("failed to get the response from: %s", req.URL)
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("received non-OK response status: %s", resp.Status)
 	}

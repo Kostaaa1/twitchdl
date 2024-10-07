@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // this is bad, optimize this
@@ -49,4 +52,27 @@ func RemoveCursor() {
 		fmt.Printf("\033[?25h")
 		os.Exit(0)
 	}()
+}
+
+func ConstructPathname(dstPath, ext string) (string, error) {
+	info, err := os.Stat(dstPath)
+
+	if os.IsNotExist(err) {
+		if filepath.Ext(dstPath) != "" {
+			dir := filepath.Dir(dstPath)
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				return "", fmt.Errorf("directory does not exist: %s", dir)
+			}
+			return dstPath, nil
+		}
+		return "", fmt.Errorf("path does not exist: %s", dstPath)
+	}
+
+	if info.IsDir() {
+		filename := fmt.Sprintf("%s.%s", uuid.New().String(), ext)
+		newpath := filepath.Join(dstPath, filename)
+		return newpath, nil
+	}
+
+	return "", fmt.Errorf("this path already exists %s: ", dstPath)
 }
