@@ -1,15 +1,13 @@
 package twitch
 
 import (
-	"io"
 	"os"
 
 	"github.com/Kostaaa1/twitchdl/types"
 )
 
 type progressWriter struct {
-	writer     io.Writer
-	slug       string
+	writer     *os.File
 	progressCh chan<- types.ProgresbarChanData
 }
 
@@ -18,7 +16,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	if err == nil {
 		select {
 		case pw.progressCh <- types.ProgresbarChanData{
-			Text:  pw.slug,
+			Text:  pw.writer.Name(),
 			Bytes: n,
 		}:
 		default:
@@ -27,20 +25,23 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (pw *progressWriter) SetWriter(writer io.Writer) {
+func (pw *progressWriter) SetWriter(writer *os.File) {
 	pw.writer = writer
 }
 
-func (c *Client) NewProgressWriter(slug, dstPath string) (*progressWriter, error) {
+func (pw *progressWriter) Close() error {
+	return pw.writer.Close()
+}
+
+func NewProgressWriter(slug, dstPath string, progressCh chan<- types.ProgresbarChanData) (*progressWriter, error) {
+	// create file outside, use SetWriter
 	f, err := os.Create(dstPath)
 	if err != nil {
 		return nil, err
 	}
-
 	pw := &progressWriter{
 		writer:     f,
-		slug:       slug,
-		progressCh: c.progressCh,
+		progressCh: progressCh,
 	}
 	return pw, nil
 }

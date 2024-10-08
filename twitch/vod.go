@@ -61,11 +61,6 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 	}
 
 	return nil
-
-	// progressCh <- types.ProgresbarChanData{
-	// 	Text:   pw.slug,
-	// 	IsDone: true,
-	// }
 }
 
 type VideoCredResponse struct {

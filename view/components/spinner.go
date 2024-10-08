@@ -80,7 +80,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			return m, nil
 		}
-
 	case errMsg:
 		m.err = msg
 		return m, nil
@@ -88,10 +87,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.state {
 			if m.state[i].text == msg.Text {
+				fmt.Print("BYTES", msg.Bytes)
 				if m.state[i].startTime.IsZero() {
 					m.state[i].startTime = time.Now()
 				}
 				m.state[i].totalBytes += float64(msg.Bytes)
+
 				// m.state[i].CurrentTime = time.Since(m.state[i].StartTime).Seconds()
 				// m.state[i].ByteCount.Convert()
 				// if m.state[i].CurrentTime > 0 {
@@ -134,16 +135,15 @@ func (m model) View() string {
 	if m.err != nil {
 		return m.err.Error()
 	}
-
 	var str strings.Builder
 	str.WriteString("\n")
+
 	for i := 0; i < len(m.state); i++ {
 		if m.state[i].err != nil {
 			s := fmt.Sprintf("⚠️ Failed to download: %s \n", m.state[i].err)
 			str.WriteString(s)
 			continue
 		}
-
 		downloadMsg := m.getProgressMsg(m.state[i].totalBytes, m.state[i].elapsedTime)
 
 		if m.state[i].isDone {

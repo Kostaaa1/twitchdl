@@ -48,7 +48,7 @@ type MediaUnit struct {
 	pw       *progressWriter
 }
 
-func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration) (MediaUnit, error) {
+func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration, progressCh chan types.ProgresbarChanData) (MediaUnit, error) {
 	slug, vtype, err := c.ID(url)
 	if err != nil {
 		return MediaUnit{}, err
@@ -59,19 +59,11 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 
-	pw, err := c.NewProgressWriter(slug, dstPath)
+	pw, err := NewProgressWriter(slug, dstPath, progressCh)
 	if err != nil {
 		log.Printf("Error creating progress writer: %v", err)
 		return MediaUnit{}, err
 	}
-	if pw == nil {
-		log.Println("Progress writer is nil")
-		return MediaUnit{}, fmt.Errorf("progress writer is nil")
-	}
-	// if err != nil {
-	// 	fmt.Println("ERROR", err)
-	// 	return MediaUnit{}, err
-	// }
 
 	return MediaUnit{
 		Slug:     slug,
@@ -92,7 +84,6 @@ func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
 			return "", err
 		}
 		id = fmt.Sprintf("%s - %s", clip.Broadcaster.DisplayName, clip.Title)
-
 	case TypeVOD:
 		vod, err := c.VideoMetadata(id)
 		if err != nil {
@@ -101,7 +92,6 @@ func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
 		}
 		id = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
 	}
-
 	return id, nil
 }
 
@@ -163,6 +153,7 @@ func (c *Client) fetch(url string) ([]byte, error) {
 		return nil, fmt.Errorf("fetching m3u8 failed: %w", err)
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("non-success HTTP status: %d %s", resp.StatusCode, resp.Status)
 	}
@@ -239,11 +230,10 @@ func (c *Client) GetToken() string {
 func (c *Client) BatchDownload(units []MediaUnit) error {
 	climit := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, climit)
 
+	sem := make(chan struct{}, climit)
 	for _, unit := range units {
 		wg.Add(1)
-
 		go func(unit MediaUnit) {
 			defer wg.Done()
 			sem <- struct{}{}
@@ -260,35 +250,37 @@ func (c *Client) BatchDownload(units []MediaUnit) error {
 	return nil
 }
 
-func (api *Client) Downloader(unit MediaUnit) error {
+func (c *Client) Downloader(unit MediaUnit) error {
 	switch unit.Vtype {
 	case TypeVOD:
-		if err := api.DownloadVOD(unit); err != nil {
+		if err := c.DownloadVOD(unit); err != nil {
 			return err
 		}
 	case TypeClip:
-		if err := api.DownloadClip(unit); err != nil {
+		if err := c.DownloadClip(unit); err != nil {
 			return err
 		}
 	case TypeLivestream:
-		if err := api.RecordStream(unit); err != nil {
+		if err := c.RecordStream(unit); err != nil {
 			return err
 		}
 	}
 
 	// Download finished, notify the spinner model.
-	// progressCh <- types.ProgresbarChanData{
-	// 	Text:   pw.slug,
-	// 	IsDone: true,
-	// }
+	c.progressCh <- types.ProgresbarChanData{
+		Text:   unit.pw.writer.Name(),
+		IsDone: true,
+	}
 
+	if err := unit.pw.writer.Close(); err != nil {
+		return fmt.Errorf("failed to close the file: %s", err)
+	}
 	return nil
 }
 
 func (c *Client) downloadSegment(dstPath string, req *http.Request, pw *progressWriter) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
-		fmt.Println("FAILED TO GET THE RESPONSEJ", err)
 		return fmt.Errorf("failed to get the response from: %s", req.URL)
 	}
 	defer resp.Body.Close()
