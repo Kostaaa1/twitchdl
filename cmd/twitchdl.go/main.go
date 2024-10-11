@@ -12,12 +12,11 @@ import (
 	"github.com/Kostaaa1/twitchdl/internal/config"
 	"github.com/Kostaaa1/twitchdl/twitch"
 	"github.com/Kostaaa1/twitchdl/types"
-	"github.com/Kostaaa1/twitchdl/view/chat"
 	"github.com/Kostaaa1/twitchdl/view/components"
 )
 
 type Prompt struct {
-	Url     string        `json:"url,input"`
+	Input   string        `json:"url,input"`
 	Quality string        `json:"quality"`
 	Start   time.Duration `json:"start"`
 	End     time.Duration `json:"end"`
@@ -56,16 +55,16 @@ func (p *Prompt) UnmarshalJSON(b []byte) error {
 }
 
 func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
-	if prompt.Url == "" {
+	if prompt.Input == "" {
 		log.Fatalf("Input was not provided.")
 	}
 	var units []twitch.MediaUnit
 	var progressCh chan types.ProgresbarChanData
 
-	_, err := os.Stat(prompt.Url)
+	_, err := os.Stat(prompt.Input)
 
 	if os.IsNotExist(err) {
-		urls := strings.Split(prompt.Url, ",")
+		urls := strings.Split(prompt.Input, ",")
 		progressCh = make(chan types.ProgresbarChanData, len(urls))
 
 		for _, url := range urls {
@@ -76,7 +75,7 @@ func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, chan 
 			units = append(units, unit)
 		}
 	} else {
-		content, err := os.ReadFile(prompt.Url)
+		content, err := os.ReadFile(prompt.Input)
 		if err != nil {
 			panic(err)
 		}
@@ -87,7 +86,7 @@ func (prompt *Prompt) processInput(tw *twitch.Client) ([]twitch.MediaUnit, chan 
 
 		progressCh = make(chan types.ProgresbarChanData, len(body))
 		for _, b := range body {
-			unit, err := tw.NewMediaUnit(b.Url, b.Quality, b.Output, b.Start, b.End, progressCh)
+			unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End, progressCh)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -105,7 +104,7 @@ func main() {
 	}
 
 	var prompt Prompt
-	flag.StringVar(&prompt.Url, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}")
+	flag.StringVar(&prompt.Input, "input", "", "The URL of the clip to download. You can download multiple clips as well by seperating them by comma (no spaces in between). Exapmle: -url https://www.twitch.tv/{...}")
 	flag.StringVar(&prompt.Quality, "quality", "best", "[best 1080 720 480 360 160 worst]. Example: -quality 1080p (optional)")
 	flag.DurationVar(&prompt.Start, "start", time.Duration(0), "The start of the VOD subset. It only works with VODs and it needs to be in this format: '1h30m0s' (optional)")
 	flag.DurationVar(&prompt.End, "end", time.Duration(0), "The end of the VOD subset. It only works with VODs and it needs to be in this format: '1h33m0s' (optional)")
@@ -113,13 +112,9 @@ func main() {
 	flag.Parse()
 
 	tw := twitch.New()
-	if prompt.Url == "" {
+	if prompt.Input == "" {
 		if len(os.Args) > 1 {
-			prompt.Url = os.Args[1]
-		} else {
-			// root.Open(twitch, jsonCfg)
-			chat.Open(tw, jsonCfg)
-			return
+			prompt.Input = os.Args[1]
 		}
 	}
 

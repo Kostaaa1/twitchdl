@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -9,8 +10,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // this is bad, optimize this
@@ -54,6 +53,17 @@ func RemoveCursor() {
 	}()
 }
 
+func createServingID() string {
+	w := strings.Split("0123456789abcdefghijklmnopqrstuvwxyz", "")
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	id := ""
+	for i := 0; i < 32; i++ {
+		id += w[r.Intn(len(w))]
+	}
+	return id
+}
+
 func ConstructPathname(dstPath, ext string) (string, error) {
 	info, err := os.Stat(dstPath)
 
@@ -69,7 +79,8 @@ func ConstructPathname(dstPath, ext string) (string, error) {
 	}
 
 	if info.IsDir() {
-		filename := fmt.Sprintf("%s.%s", uuid.New().String(), ext)
+		fileID := createServingID()
+		filename := fmt.Sprintf("%s.%s", fileID, ext)
 		newpath := filepath.Join(dstPath, filename)
 		return newpath, nil
 	}

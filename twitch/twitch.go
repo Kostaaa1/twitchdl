@@ -65,6 +65,10 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 
+	if quality == "" {
+		quality = "best"
+	}
+
 	return MediaUnit{
 		Slug:     slug,
 		Vtype:    vtype,
@@ -175,6 +179,22 @@ func (c *Client) NewGetRequest(URL string) (*http.Request, error) {
 func (c *Client) decodeJSONResponse(resp *http.Response, p interface{}) error {
 	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) SendGqlLoadAndDecode(body *strings.Reader, v any) error {
+	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
+	if err != nil {
+		return fmt.Errorf("failed to create request to get the access token: %s", err)
+	}
+	req.Header.Set("Client-Id", c.gqlClientID)
+	resp, err := c.do(req)
+	if err != nil {
+		return err
+	}
+	if err := c.decodeJSONResponse(resp, &v); err != nil {
 		return err
 	}
 	return nil

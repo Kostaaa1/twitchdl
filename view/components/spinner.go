@@ -2,7 +2,6 @@ package components
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -28,7 +27,6 @@ type model struct {
 	state        []SpinnerState
 	progressChan chan types.ProgresbarChanData
 	spinner      spinner.Model
-	quitting     bool
 	err          error
 }
 
@@ -75,7 +73,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
-			m.quitting = true
 			return m, tea.Quit
 		default:
 			return m, nil
@@ -87,7 +84,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case chanMsg:
 		for i := range m.state {
 			if m.state[i].text == msg.Text {
-				fmt.Print("BYTES", msg.Bytes)
 				if m.state[i].startTime.IsZero() {
 					m.state[i].startTime = time.Now()
 				}
@@ -144,6 +140,7 @@ func (m model) View() string {
 			str.WriteString(s)
 			continue
 		}
+
 		downloadMsg := m.getProgressMsg(m.state[i].totalBytes, m.state[i].elapsedTime)
 
 		if m.state[i].isDone {
@@ -160,7 +157,6 @@ func (m model) View() string {
 func Spinner(titles []string, progressChan chan types.ProgresbarChanData) {
 	p := tea.NewProgram(initialModel(titles, progressChan))
 	if _, err := p.Run(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Printf("Error starting program: %v", err)
 	}
 }
