@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/m3u8"
+	"github.com/Kostaaa1/twitchdl/internal/m3u8"
 )
 
 func (c *Client) GetLivestreamCreds(id string) (string, string, error) {

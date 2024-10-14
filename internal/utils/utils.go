@@ -12,17 +12,6 @@ import (
 	"time"
 )
 
-// this is bad, optimize this
-// func ConvertBytes(b float64) string {
-// 	units := []string{"B", "KB", "MB", "GB", "TB"}
-// 	i := 0
-// 	for b >= 1024 && i < len(units)-1 {
-// 		b /= 1024
-// 		i++
-// 	}
-// 	return fmt.Sprintf("%.01f %s", b, units[i])
-// }
-
 func GetCurrentTimeFormatted() string {
 	now := time.Now()
 	timestamp := now.UnixNano() / int64(time.Millisecond)
@@ -53,7 +42,7 @@ func RemoveCursor() {
 	}()
 }
 
-func createServingID() string {
+func CreateServingID() string {
 	w := strings.Split("0123456789abcdefghijklmnopqrstuvwxyz", "")
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -64,9 +53,8 @@ func createServingID() string {
 	return id
 }
 
-func ConstructPathname(dstPath, ext string) (string, error) {
+func ConstructPathname(dstPath, filename, quality string) (string, error) {
 	info, err := os.Stat(dstPath)
-
 	if os.IsNotExist(err) {
 		if filepath.Ext(dstPath) != "" {
 			dir := filepath.Dir(dstPath)
@@ -79,8 +67,8 @@ func ConstructPathname(dstPath, ext string) (string, error) {
 	}
 
 	if info.IsDir() {
-		fileID := createServingID()
-		filename := fmt.Sprintf("%s.%s", fileID, ext)
+		fileID := CreateServingID()
+		filename := fmt.Sprintf("%s.%s", fileID, "mp4")
 		newpath := filepath.Join(dstPath, filename)
 		return newpath, nil
 	}

@@ -33,8 +33,8 @@ func (pw *progressWriter) Close() error {
 	return pw.writer.Close()
 }
 
-func NewProgressWriter(slug, dstPath string, progressCh chan<- types.ProgresbarChanData) (*progressWriter, error) {
-	// create file outside, use SetWriter
+func NewProgressWriter(dstPath string, progressCh chan<- types.ProgresbarChanData) (*progressWriter, error) {
+	// create file outside, use SetWriter before writing
 	f, err := os.Create(dstPath)
 	if err != nil {
 		return nil, err

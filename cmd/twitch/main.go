@@ -11,8 +11,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
 	tw := twitch.New()
 	chat.Open(tw, jsonCfg)
-	return
 }

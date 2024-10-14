@@ -49,24 +49,26 @@ type MediaUnit struct {
 }
 
 func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration, progressCh chan types.ProgresbarChanData) (MediaUnit, error) {
+	if start >= end {
+		return MediaUnit{}, fmt.Errorf("invalid time range: Start time (%v) is greater or equal to End time (%v) for URL (%s)", start, end, url)
+	}
+
+	quality = getResolution(quality)
+
 	slug, vtype, err := c.ID(url)
 	if err != nil {
 		return MediaUnit{}, err
 	}
 
-	dstPath, err := utils.ConstructPathname(output, "mp4")
+	dstPath, err := utils.ConstructPathname(output, slug, quality)
 	if err != nil {
 		return MediaUnit{}, err
 	}
 
-	pw, err := NewProgressWriter(slug, dstPath, progressCh)
+	pw, err := NewProgressWriter(dstPath, progressCh)
 	if err != nil {
 		log.Printf("Error creating progress writer: %v", err)
 		return MediaUnit{}, err
-	}
-
-	if quality == "" {
-		quality = "best"
 	}
 
 	return MediaUnit{
@@ -78,25 +80,6 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		DestPath: dstPath,
 		pw:       pw,
 	}, nil
-}
-
-func (c *Client) MediaTitle(id string, vType VideoType) (string, error) {
-	switch vType {
-	case TypeClip:
-		clip, err := c.ClipMetadata(id)
-		if err != nil {
-			return "", err
-		}
-		id = fmt.Sprintf("%s - %s", clip.Broadcaster.DisplayName, clip.Title)
-	case TypeVOD:
-		vod, err := c.VideoMetadata(id)
-		if err != nil {
-			fmt.Println("error", err)
-			return "", err
-		}
-		id = fmt.Sprintf("%s - %s", vod.Owner.Login, vod.Title)
-	}
-	return id, nil
 }
 
 func (c *Client) ID(URL string) (string, VideoType, error) {
@@ -113,6 +96,7 @@ func (c *Client) ID(URL string) (string, VideoType, error) {
 		_, id := path.Split(parsedURL.Path)
 		return id, TypeClip, nil
 	}
+
 	if strings.Contains(parsedURL.Path, "/videos/") {
 		_, id := path.Split(parsedURL.Path)
 		return id, TypeVOD, nil
@@ -151,20 +135,41 @@ func (c *Client) do(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
+func (c *Client) fetchWithCode(url string) ([]byte, int, error) {
+	resp, err := c.client.Get(url)
+	if err != nil {
+		return nil, 0, fmt.Errorf("fetching failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, resp.StatusCode, fmt.Errorf("non-success HTTP status: %d %s", resp.StatusCode, resp.Status)
+	}
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("reading response body failed: %w", err)
+	}
+
+	return bytes, resp.StatusCode, nil
+}
+
 func (c *Client) fetch(url string) ([]byte, error) {
 	resp, err := c.client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("fetching m3u8 failed: %w", err)
+		return nil, fmt.Errorf("fetching failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("non-success HTTP status: %d %s", resp.StatusCode, resp.Status)
 	}
+
 	bytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
+
 	return bytes, nil
 }
 
@@ -179,22 +184,6 @@ func (c *Client) NewGetRequest(URL string) (*http.Request, error) {
 func (c *Client) decodeJSONResponse(resp *http.Response, p interface{}) error {
 	defer resp.Body.Close()
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Client) SendGqlLoadAndDecode(body *strings.Reader, v any) error {
-	req, err := http.NewRequest(http.MethodPost, c.gqlURL, body)
-	if err != nil {
-		return fmt.Errorf("failed to create request to get the access token: %s", err)
-	}
-	req.Header.Set("Client-Id", c.gqlClientID)
-	resp, err := c.do(req)
-	if err != nil {
-		return err
-	}
-	if err := c.decodeJSONResponse(resp, &v); err != nil {
 		return err
 	}
 	return nil
@@ -286,7 +275,6 @@ func (c *Client) Downloader(unit MediaUnit) error {
 		}
 	}
 
-	// Download finished, notify the spinner model.
 	c.progressCh <- types.ProgresbarChanData{
 		Text:   unit.pw.writer.Name(),
 		IsDone: true,
@@ -298,7 +286,7 @@ func (c *Client) Downloader(unit MediaUnit) error {
 	return nil
 }
 
-func (c *Client) downloadSegment(dstPath string, req *http.Request, pw *progressWriter) error {
+func (c *Client) downloadSegment(req *http.Request, pw *progressWriter) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to get the response from: %s", req.URL)

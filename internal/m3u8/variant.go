@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func ParseVariantPlaylist(line, URL string) VariantPlaylist {
+func parseVariantPlaylist(line, URL string) VariantPlaylist {
 	var variant VariantPlaylist
 	variant.URL = URL
 

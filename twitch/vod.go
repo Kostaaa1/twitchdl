@@ -2,50 +2,61 @@ package twitch
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/m3u8"
+	"github.com/Kostaaa1/twitchdl/internal/m3u8"
 )
+
+func processSegments(mediaPlaylist []byte, start, end time.Duration) []string {
+	var segmentDuration float64 = 10
+	s := int(start.Seconds()/segmentDuration) * 2
+	e := int(end.Seconds()/segmentDuration) * 2
+
+	var segments []string
+	lines := strings.Split(string(mediaPlaylist), "\n")[8:]
+	if e == 0 {
+		segments = lines[s:]
+	} else {
+		segments = lines[s:e]
+	}
+	return segments
+}
 
 func (c *Client) DownloadVOD(unit MediaUnit) error {
 	////////////// move it to single function ///////////////
-	token, sig, err := c.GetVideoCredentials(unit.Slug)
-	if err != nil {
+	master, status, err := c.GetVODMasterM3u8(unit.Slug)
+	if err != nil && status != http.StatusForbidden {
 		return err
 	}
-	master, err := c.GetVODMasterM3u8(token, sig, unit.Slug)
-	if err != nil {
-		return err
-	}
-	mediaList, err := master.GetVariantPlaylistByQuality(unit.Quality)
-	if err != nil {
-		return err
-	}
-	playlist, err := c.fetch(mediaList.URL)
-	if err != nil {
-		return err
-	}
-	///////////////////////////////////////////////////////
-
-	var segmentDuration float64 = 10
-	s := int(unit.Start.Seconds()/segmentDuration) * 2
-	e := int(unit.End.Seconds()/segmentDuration) * 2
-
-	var segmentLines []string
-	lines := strings.Split(string(playlist), "\n")[8:]
-	if e == 0 {
-		segmentLines = lines[s:]
+	var vodPlaylistURL string
+	if status == http.StatusForbidden {
+		subUrl, err := c.getSubVODPlaylistURL(unit.Slug, unit.Quality)
+		if err != nil {
+			return err
+		}
+		vodPlaylistURL = subUrl
 	} else {
-		segmentLines = lines[s:e]
+		variantList, err := master.GetVariantPlaylistByQuality(unit.Quality)
+		if err != nil {
+			return err
+		}
+		vodPlaylistURL = variantList.URL
 	}
+	mediaPlaylist, err := c.fetch(vodPlaylistURL)
+	if err != nil {
+		return err
+	}
+	////////////////////////////////////////////////////////////
 
-	for _, tsFile := range segmentLines {
+	segments := processSegments(mediaPlaylist, unit.Start, unit.End)
+
+	for _, tsFile := range segments {
 		if strings.HasSuffix(tsFile, ".ts") {
-			lastIndex := strings.LastIndex(mediaList.URL, "/")
-			chunkURL := fmt.Sprintf("%s/%s", mediaList.URL[:lastIndex], tsFile)
+			lastIndex := strings.LastIndex(vodPlaylistURL, "/")
+			chunkURL := fmt.Sprintf("%s/%s", vodPlaylistURL[:lastIndex], tsFile)
 
 			req, err := http.NewRequest(http.MethodGet, chunkURL, nil)
 			if err != nil {
@@ -53,8 +64,8 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 				return err
 			}
 
-			if err := c.downloadSegment(unit.DestPath, req, unit.pw); err != nil {
-				fmt.Println("failed to download segment: ", chunkURL, "Error: ", err)
+			if err := c.downloadSegment(req, unit.pw); err != nil {
+				fmt.Println("failed to downloamediaList.URLd segment: ", chunkURL, "Error: ", err)
 				return err
 			}
 		}
@@ -69,51 +80,105 @@ type VideoCredResponse struct {
 	Value     string `json:"value"`
 }
 
-func (c *Client) GetVideoCredentials(id string) (string, string, error) {
+func (c *Client) getVideoCredentials(id string) (string, string, error) {
 	gqlPayload := `{
-        "operationName": "PlaybackAccessToken_Template",
-        "query": "query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}",
-        "variables": {
-            "isLive": false,
-            "login": "",
-            "isVod": true,
-            "vodID": "%s",
-            "playerType": "site"
-        }
-    }`
+	    "operationName": "PlaybackAccessToken_Template",
+	    "query": "query PlaybackAccessToken_Template($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {  streamPlaybackAccessToken(channelName: $login, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isLive) {    value    signature   authorization { isForbidden forbiddenReasonCode }   __typename  }  videoPlaybackAccessToken(id: $vodID, params: {platform: \"web\", playerBackend: \"mediaplayer\", playerType: $playerType}) @include(if: $isVod) {    value    signature   __typename  }}",
+	    "variables": {
+	        "isLive": false,
+	        "login": "",
+	        "isVod": true,
+	        "vodID": "%s",
+	        "playerType": "site"
+	    }
+	}`
+	body := strings.NewReader(fmt.Sprintf(gqlPayload, id))
+
 	type payload struct {
 		Data struct {
 			VideoPlaybackAccessToken VideoCredResponse `json:"videoPlaybackAccessToken"`
 		} `json:"data"`
 	}
 	var p payload
-
-	body := strings.NewReader(fmt.Sprintf(gqlPayload, id))
 	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
 		return "", "", err
 	}
+
 	return p.Data.VideoPlaybackAccessToken.Value, p.Data.VideoPlaybackAccessToken.Signature, nil
 }
 
-func (c *Client) GetVODMasterM3u8(token, sig, id string) (*m3u8.MasterPlaylist, error) {
-	u := fmt.Sprintf("%s/vod/%s?nauth=%s&nauthsig=%s&allow_audio_only=true&allow_source=true",
-		c.usherURL, id, token, sig)
-	resp, err := c.client.Get(u)
+func (c *Client) GetVODMasterM3u8(slug string) (*m3u8.MasterPlaylist, int, error) {
+	token, sig, err := c.getVideoCredentials(slug)
 	if err != nil {
-		return nil, err
+		return nil, http.StatusInternalServerError, err
 	}
-	defer resp.Body.Close()
 
-	if s := resp.StatusCode; s < 200 || s >= 300 {
-		return nil, fmt.Errorf("unsupported status code (%v) for url: %s", s, u)
-	}
-	b, err := io.ReadAll(resp.Body)
+	u := fmt.Sprintf("%s/vod/%s?nauth=%s&nauthsig=%s&allow_audio_only=true&allow_source=true", c.usherURL, slug, token, sig)
+
+	b, code, err := c.fetchWithCode(u)
 	if err != nil {
-		return nil, err
+		return nil, code, err
 	}
 
-	return m3u8.New(b), nil
+	return m3u8.New(b), code, nil
+}
 
+type SubVODResponse struct {
+	Data struct {
+		Video struct {
+			BroadcastType string    `json:"broadcastType"`
+			CreatedAt     time.Time `json:"createdAt"`
+			Owner         struct {
+				Login string `json:"login"`
+			} `json:"owner"`
+			SeekPreviewsURL string `json:"seekPreviewsURL"`
+		} `json:"video"`
+	} `json:"data"`
+	Extensions struct {
+		DurationMilliseconds int    `json:"durationMilliseconds"`
+		RequestID            string `json:"requestID"`
+	} `json:"extensions"`
+}
+
+func (c *Client) getSubVODPlaylistURL(slug, quality string) (string, error) {
+	gqlPayload := `{
+				"query": "query { video(id: \"%s\") { broadcastType, createdAt, seekPreviewsURL, owner { login } } }"
+			}`
+	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
+
+	var p SubVODResponse
+	if err := c.sendGqlLoadAndDecode(body, &p); err != nil {
+		return "", err
+	}
+
+	previewURL, err := url.Parse(p.Data.Video.SeekPreviewsURL)
+	if err != nil {
+		return "", err
+	}
+
+	paths := strings.Split(previewURL.Path, "/")
+	var vodId string
+	for i, p := range paths {
+		if p == "storyboards" {
+			vodId = paths[i-1]
+		}
+	}
+
+	// [not tested] Only old uploaded VOD works with this method now
+	// days_difference - difference between current date and p.Data.Video.CreatedAt
+	// if broadcastType == "upload" && days_difference > 7 {
+	// url = fmt.Sprintf(`https://${domain}/${channelData.login}/${vodId}/${vodSpecialID}/${resKey}/index-dvr.m3u8`, previewURL.Host, p.Data.Video.Owner.Login, slug, vodId, resolution)
+	// }
+
+	resolution := getResolution(quality)
+	broadcastType := strings.ToLower(p.Data.Video.BroadcastType)
+	var url string
+	if broadcastType == "highlight" {
+		url = fmt.Sprintf(`https://%s/%s/%s/highlight-%s.m3u8`, previewURL.Host, vodId, resolution, slug)
+	} else if broadcastType != "upload" {
+		url = fmt.Sprintf(`https://%s/%s/%s/index-dvr.m3u8`, previewURL.Host, vodId, resolution)
+	}
+	return url, nil
 }
 
 type VideoMetadata struct {
@@ -133,7 +198,7 @@ type VideoMetadata struct {
 	Title string `json:"title"`
 }
 
-func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
+func (c *Client) videoMetadata(id string) (VideoMetadata, error) {
 	gqlPayload := `{
 		"operationName": "NielsenContentMetadata",
 		"variables": {
@@ -164,33 +229,4 @@ func (c *Client) VideoMetadata(id string) (VideoMetadata, error) {
 		return VideoMetadata{}, err
 	}
 	return p.Data.Video, nil
-}
-
-// func (c *Client) FetchMediaPlaylist(playlistURL string) ([]byte, error) {
-// 	req, err := http.NewRequest(http.MethodGet, playlistURL, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	resp, err := c.do(req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
-// 	m3u8, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return m3u8, nil
-// }
-
-func (c *Client) GetMediaPlaylists(master []byte) []string {
-	lines := strings.Split(string(master), "\n")
-	var u []string
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if strings.HasPrefix(line, "#EXT-X-STREAM-INF") {
-			u = append(u, lines[i+1])
-		}
-	}
-	return u
 }

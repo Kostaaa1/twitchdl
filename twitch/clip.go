@@ -93,7 +93,7 @@ func (c *Client) DownloadClip(unit MediaUnit) error {
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 
-	if err := c.downloadSegment(unit.DestPath, req, unit.pw); err != nil {
+	if err := c.downloadSegment(req, unit.pw); err != nil {
 		return err
 	}
 
@@ -118,7 +118,7 @@ type ClipMetadata struct {
 	Title string `json:"title"`
 }
 
-func (c *Client) ClipMetadata(slug string) (ClipMetadata, error) {
+func (c *Client) clipMetadata(slug string) (ClipMetadata, error) {
 	gqlPayload := `{
         "operationName": "ComscoreStreamingQuery",
         "variables": {

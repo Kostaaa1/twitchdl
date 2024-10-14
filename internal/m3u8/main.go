@@ -1,21 +1,5 @@
 package m3u8
 
-// type Segment struct {
-// 	Duration float64
-// 	URL      string
-// }
-
-// type MediaPlaylist struct {
-// 	Version        int
-// 	TargetDuration int
-// 	Timestamp      time.Time
-// 	PlaylistType   string
-// 	MediaSequence  int
-// 	ElapsedSecs    float64
-// 	TotalSecs      float64
-// 	Segments       []Segment
-// }
-
 type VariantPlaylist struct {
 	Bandwidth  string `json:"BANDWIDTH"`
 	Codecs     string `json:"CODECS"`
