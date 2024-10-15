@@ -67,9 +67,9 @@ func ConstructPathname(dstPath, filename, quality string) (string, error) {
 	}
 
 	if info.IsDir() {
-		fileID := CreateServingID()
-		filename := fmt.Sprintf("%s.%s", fileID, "mp4")
-		newpath := filepath.Join(dstPath, filename)
+		// fileID := CreateServingID()
+		fname := fmt.Sprintf("%s.%s", filename, "mp4")
+		newpath := filepath.Join(dstPath, fname)
 		return newpath, nil
 	}
 

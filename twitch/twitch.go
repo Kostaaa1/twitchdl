@@ -54,6 +54,7 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 	quality = getResolution(quality, vtype)
+	fmt.Println("quality", quality, vtype, TypeVOD)
 
 	if vtype == TypeVOD {
 		if start > 0 && end > 0 && start >= end {
