@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/twitch"
@@ -66,36 +67,24 @@ func processFileInput(tw *twitch.Client, input string) ([]twitch.MediaUnit, chan
 
 	for _, b := range body {
 		unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End, progressCh)
-		// TODO: do not skip
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 		units = append(units, unit)
 	}
-
 	return units, progressCh
 }
 
-func processFlagInput(tw *twitch.Client, input string) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
-	content, err := os.ReadFile(input)
-	if err != nil {
-		panic(err)
-	}
-
-	var body []Prompt
-	if err := json.Unmarshal(content, &body); err != nil {
-		panic(err)
-	}
+func processFlagInput(tw *twitch.Client, prompt *Prompt) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
+	urls := strings.Split(prompt.Input, ",")
 
 	var units []twitch.MediaUnit
-	progressCh := make(chan types.ProgresbarChanData, len(body))
+	progressCh := make(chan types.ProgresbarChanData, len(urls))
 
-	for _, b := range body {
-		unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End, progressCh)
-		// TODO: do not skip
+	for _, url := range urls {
+		unit, err := tw.NewMediaUnit(url, prompt.Quality, prompt.Output, prompt.Start, prompt.End, progressCh)
 		if err != nil {
-			fmt.Println(err)
 			continue
 		}
 		units = append(units, unit)
@@ -114,7 +103,7 @@ func (prompt *Prompt) ProcessInput(tw *twitch.Client) ([]twitch.MediaUnit, chan 
 
 	_, err := os.Stat(prompt.Input)
 	if os.IsNotExist(err) {
-		units, progressCh = processFlagInput(tw, prompt.Input)
+		units, progressCh = processFlagInput(tw, prompt)
 	} else {
 		units, progressCh = processFileInput(tw, prompt.Input)
 	}

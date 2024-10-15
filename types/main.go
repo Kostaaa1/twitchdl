@@ -76,27 +76,28 @@ type Notice struct {
 }
 
 type JsonConfig struct {
-	OpenedChats     []string  `json:"openedChats"`
 	BroadcasterType string    `json:"broadcasterType"`
 	Colors          Colors    `json:"colors"`
 	CreatedAt       time.Time `json:"createdAt"`
 	Creds           struct {
 		AccessToken  string `json:"accessToken"`
-		ClientID     string `json:"clientID"`
+		ClientID     string `json:"clientId"`
 		ClientSecret string `json:"clientSecret"`
 	} `json:"creds"`
-	Description     string `json:"description"`
-	DisplayName     string `json:"displayName"`
-	ID              string `json:"id"`
-	Login           string `json:"login"`
-	OfflineImageUrl string `json:"offlineImageUrl"`
+	Description     string   `json:"description"`
+	DisplayName     string   `json:"displayName"`
+	ID              string   `json:"id"`
+	Login           string   `json:"login"`
+	OfflineImageURL string   `json:"offlineImageUrl"`
+	OpenedChats     []string `json:"openedChats"`
 	Paths           struct {
 		ChromePath string `json:"chromePath"`
 		OutputPath string `json:"outputPath"`
 	} `json:"paths"`
-	ProfileImageUrl string `json:"profileImageUrl"`
-	ShowTimestamps  bool   `json:"showTimestamps"`
-	Type            string `json:"type"`
+	ProfileImageURL     string `json:"profileImageUrl"`
+	ShowTimestamps      bool   `json:"showTimestamps"`
+	ShowDownloadSpinner bool   `json:"showDownloadSpinner"`
+	Type                string `json:"type"`
 }
 
 type Colors struct {

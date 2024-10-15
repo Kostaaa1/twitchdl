@@ -49,15 +49,16 @@ type MediaUnit struct {
 }
 
 func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration, progressCh chan types.ProgresbarChanData) (MediaUnit, error) {
-	if start >= end {
-		return MediaUnit{}, fmt.Errorf("invalid time range: Start time (%v) is greater or equal to End time (%v) for URL (%s)", start, end, url)
-	}
-
-	quality = getResolution(quality)
-
 	slug, vtype, err := c.ID(url)
 	if err != nil {
 		return MediaUnit{}, err
+	}
+	quality = getResolution(quality, vtype)
+
+	if vtype == TypeVOD {
+		if start > 0 && end > 0 && start >= end {
+			return MediaUnit{}, fmt.Errorf("invalid time range: Start time (%v) is greater or equal to End time (%v) for URL (%s)", start, end, url)
+		}
 	}
 
 	dstPath, err := utils.ConstructPathname(output, slug, quality)
@@ -109,6 +110,7 @@ func New() *Client {
 	if err != nil {
 		panic(err)
 	}
+
 	return &Client{
 		client:      http.DefaultClient,
 		config:      *cfg,
@@ -169,7 +171,6 @@ func (c *Client) fetch(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
-
 	return bytes, nil
 }
 
@@ -275,9 +276,11 @@ func (c *Client) Downloader(unit MediaUnit) error {
 		}
 	}
 
-	c.progressCh <- types.ProgresbarChanData{
-		Text:   unit.pw.writer.Name(),
-		IsDone: true,
+	if c.config.ShowDownloadSpinner {
+		c.progressCh <- types.ProgresbarChanData{
+			Text:   unit.pw.writer.Name(),
+			IsDone: true,
+		}
 	}
 
 	if err := unit.pw.writer.Close(); err != nil {
@@ -287,6 +290,7 @@ func (c *Client) Downloader(unit MediaUnit) error {
 }
 
 func (c *Client) downloadSegment(req *http.Request, pw *progressWriter) error {
+	fmt.Println("\n Downloading segment: ", req.URL)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to get the response from: %s", req.URL)

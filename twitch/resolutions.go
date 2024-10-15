@@ -10,25 +10,23 @@ type Resolution struct {
 }
 
 var (
-	resolutionKeys = []string{"chunked", "1080p60", "720p60", "480p30", "360p30", "160p30"}
-	resolutions    = map[string]Resolution{
-		"chunked": {res: "1920x1080", fps: 60},
-		"1080p60": {res: "1920x1080", fps: 60},
-		"720p60":  {res: "1280x720", fps: 60},
-		"480p30":  {res: "854x480", fps: 30},
-		"360p30":  {res: "640x360", fps: 30},
-		"160p30":  {res: "284x160", fps: 30},
-	}
+	resolutionKeys = []string{"best", "1080p60", "720p60", "480p30", "360p30", "160p30", "worst"}
 )
 
-func getResolution(quality string) string {
-	if quality == "best" {
-		return resolutionKeys[0]
-	}
-	if quality == "worst" {
-		return resolutionKeys[len(resolutionKeys)-1]
-	}
+func getResolution(quality string, vtype VideoType) string {
 	for i, q := range resolutionKeys {
+		if quality == "best" {
+			if vtype == TypeVOD {
+				return "chunked"
+			}
+			return "best"
+		}
+		if quality == "worst" {
+			if vtype == TypeVOD {
+				return "16030"
+			}
+			return "worst"
+		}
 		if strings.HasPrefix(q, quality) || strings.HasPrefix(quality, q) {
 			return resolutionKeys[i]
 		}

@@ -31,6 +31,7 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 	if err != nil && status != http.StatusForbidden {
 		return err
 	}
+
 	var vodPlaylistURL string
 	if status == http.StatusForbidden {
 		subUrl, err := c.getSubVODPlaylistURL(unit.Slug, unit.Quality)
@@ -45,6 +46,7 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 		}
 		vodPlaylistURL = variantList.URL
 	}
+
 	mediaPlaylist, err := c.fetch(vodPlaylistURL)
 	if err != nil {
 		return err
@@ -142,8 +144,8 @@ type SubVODResponse struct {
 
 func (c *Client) getSubVODPlaylistURL(slug, quality string) (string, error) {
 	gqlPayload := `{
-				"query": "query { video(id: \"%s\") { broadcastType, createdAt, seekPreviewsURL, owner { login } } }"
-			}`
+ 	   "query": "query { video(id: \"%s\") { broadcastType, createdAt, seekPreviewsURL, owner { login } } }"
+	}`
 	body := strings.NewReader(fmt.Sprintf(gqlPayload, slug))
 
 	var p SubVODResponse
@@ -164,19 +166,19 @@ func (c *Client) getSubVODPlaylistURL(slug, quality string) (string, error) {
 		}
 	}
 
-	// [not tested] Only old uploaded VOD works with this method now
+	// [NOT TESTED] Only old uploaded VOD works with this method now
 	// days_difference - difference between current date and p.Data.Video.CreatedAt
 	// if broadcastType == "upload" && days_difference > 7 {
 	// url = fmt.Sprintf(`https://${domain}/${channelData.login}/${vodId}/${vodSpecialID}/${resKey}/index-dvr.m3u8`, previewURL.Host, p.Data.Video.Owner.Login, slug, vodId, resolution)
 	// }
+	// resolution := getResolution(quality, v)
 
-	resolution := getResolution(quality)
 	broadcastType := strings.ToLower(p.Data.Video.BroadcastType)
 	var url string
 	if broadcastType == "highlight" {
-		url = fmt.Sprintf(`https://%s/%s/%s/highlight-%s.m3u8`, previewURL.Host, vodId, resolution, slug)
+		url = fmt.Sprintf(`https://%s/%s/%s/highlight-%s.m3u8`, previewURL.Host, vodId, quality, slug)
 	} else if broadcastType != "upload" {
-		url = fmt.Sprintf(`https://%s/%s/%s/index-dvr.m3u8`, previewURL.Host, vodId, resolution)
+		url = fmt.Sprintf(`https://%s/%s/%s/index-dvr.m3u8`, previewURL.Host, vodId, quality)
 	}
 	return url, nil
 }

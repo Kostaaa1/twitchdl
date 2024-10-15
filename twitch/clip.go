@@ -26,7 +26,7 @@ type ClipCredentials struct {
 	VideoQualities VideoQualities `json:"videoQualities"`
 }
 
-func (c *Client) extractSourceURL(videoQualities VideoQualities, quality string) string {
+func (c *Client) extractClipSourceURL(videoQualities VideoQualities, quality string) string {
 	if quality == "best" {
 		return videoQualities[0].SourceURL
 	}
@@ -76,7 +76,7 @@ func (c *Client) GetClipUsherURL(slug, quality string) (string, error) {
 		return "", err
 	}
 
-	sourceURL := c.extractSourceURL(clip.VideoQualities, quality)
+	sourceURL := c.extractClipSourceURL(clip.VideoQualities, quality)
 	URL := fmt.Sprintf("%s?sig=%s&token=%s", sourceURL, url.QueryEscape(clip.PlaybackAccessToken.Signature), url.QueryEscape(clip.PlaybackAccessToken.Value))
 	return URL, nil
 }
@@ -86,6 +86,8 @@ func (c *Client) DownloadClip(unit MediaUnit) error {
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("\nUSHER", usherURL)
 
 	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
 	if err != nil {
