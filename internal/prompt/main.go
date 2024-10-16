@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/twitch"
-	"github.com/Kostaaa1/twitchdl/types"
 )
 
 type Prompt struct {
@@ -51,7 +50,7 @@ func (p *Prompt) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func processFileInput(tw *twitch.Client, input string) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
+func processFileInput(tw *twitch.Client, input string) []twitch.MediaUnit {
 	content, err := os.ReadFile(input)
 	if err != nil {
 		panic(err)
@@ -63,49 +62,46 @@ func processFileInput(tw *twitch.Client, input string) ([]twitch.MediaUnit, chan
 	}
 
 	var units []twitch.MediaUnit
-	progressCh := make(chan types.ProgresbarChanData, len(body))
 
 	for _, b := range body {
-		unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End, progressCh)
+		unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 		units = append(units, unit)
 	}
-	return units, progressCh
+	return units
 }
 
-func processFlagInput(tw *twitch.Client, prompt *Prompt) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
+func processFlagInput(tw *twitch.Client, prompt *Prompt) []twitch.MediaUnit {
 	urls := strings.Split(prompt.Input, ",")
 
 	var units []twitch.MediaUnit
-	progressCh := make(chan types.ProgresbarChanData, len(urls))
 
 	for _, url := range urls {
-		unit, err := tw.NewMediaUnit(url, prompt.Quality, prompt.Output, prompt.Start, prompt.End, progressCh)
+		unit, err := tw.NewMediaUnit(url, prompt.Quality, prompt.Output, prompt.Start, prompt.End)
 		if err != nil {
 			continue
 		}
 		units = append(units, unit)
 	}
 
-	return units, progressCh
+	return units
 }
 
-func (prompt *Prompt) ProcessInput(tw *twitch.Client) ([]twitch.MediaUnit, chan types.ProgresbarChanData) {
+func (prompt *Prompt) ProcessInput(tw *twitch.Client) []twitch.MediaUnit {
 	if prompt.Input == "" {
 		log.Fatalf("Input was not provided.")
 	}
 
 	var units []twitch.MediaUnit
-	var progressCh chan types.ProgresbarChanData
 
 	_, err := os.Stat(prompt.Input)
 	if os.IsNotExist(err) {
-		units, progressCh = processFlagInput(tw, prompt)
+		units = processFlagInput(tw, prompt)
 	} else {
-		units, progressCh = processFileInput(tw, prompt.Input)
+		units = processFileInput(tw, prompt.Input)
 	}
-	return units, progressCh
+	return units
 }

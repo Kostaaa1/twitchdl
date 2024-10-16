@@ -123,6 +123,6 @@ type Colors struct {
 
 type ProgresbarChanData struct {
 	Text   string
-	Bytes  int
+	Bytes  int64
 	IsDone bool
 }

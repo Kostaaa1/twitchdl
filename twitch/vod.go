@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -55,6 +56,11 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 
 	segments := processSegments(mediaPlaylist, unit.Start, unit.End)
 
+	f, err := os.Create(unit.DestPath)
+	if err != nil {
+		return err
+	}
+
 	for _, tsFile := range segments {
 		if strings.HasSuffix(tsFile, ".ts") {
 			lastIndex := strings.LastIndex(vodPlaylistURL, "/")
@@ -66,7 +72,7 @@ func (c *Client) DownloadVOD(unit MediaUnit) error {
 				return err
 			}
 
-			if err := c.downloadSegment(req, unit.pw); err != nil {
+			if err := c.downloadSegment(req, f); err != nil {
 				fmt.Println("failed to downloamediaList.URLd segment: ", chunkURL, "Error: ", err)
 				return err
 			}

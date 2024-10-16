@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -93,7 +94,13 @@ func (c *Client) DownloadClip(unit MediaUnit) error {
 	}
 	req.Header.Set("Client-Id", c.gqlClientID)
 
-	if err := c.downloadSegment(req, unit.pw); err != nil {
+	f, err := os.Create(unit.DestPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err := c.downloadSegment(req, f); err != nil {
 		return err
 	}
 

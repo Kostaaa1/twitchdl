@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -45,10 +45,10 @@ type MediaUnit struct {
 	Start    time.Duration `json:"start"`
 	End      time.Duration `json:"end"`
 	DestPath string        `json:"destPath"`
-	pw       *progressWriter
+	// pw       *progressWriter
 }
 
-func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration, progressCh chan types.ProgresbarChanData) (MediaUnit, error) {
+func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Duration) (MediaUnit, error) {
 	slug, vtype, err := c.ID(url)
 	if err != nil {
 		return MediaUnit{}, err
@@ -66,11 +66,11 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 
-	pw, err := NewProgressWriter(dstPath, progressCh)
-	if err != nil {
-		log.Printf("Error creating progress writer: %v", err)
-		return MediaUnit{}, err
-	}
+	// pw, err := NewProgressWriter(dstPath, progressCh)
+	// if err != nil {
+	// 	log.Printf("Error creating progress writer: %v", err)
+	// 	return MediaUnit{}, err
+	// }
 
 	return MediaUnit{
 		Slug:     slug,
@@ -79,7 +79,7 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		Start:    start,
 		End:      end,
 		DestPath: dstPath,
-		pw:       pw,
+		// pw:       pw,
 	}, nil
 }
 
@@ -276,20 +276,20 @@ func (c *Client) Downloader(unit MediaUnit) error {
 		}
 	}
 
-	if c.config.ShowDownloadSpinner {
-		c.progressCh <- types.ProgresbarChanData{
-			Text:   unit.pw.writer.Name(),
-			IsDone: true,
-		}
-	}
+	// if c.config.ShowDownloadSpinner {
+	// 	c.progressCh <- types.ProgresbarChanData{
+	// 		Text:   unit.pw.writer.Name(),
+	// 		IsDone: true,
+	// 	}
+	// }
+	// if err := unit.pw.writer.Close(); err != nil {
+	// 	return fmt.Errorf("failed to close the file: %s", err)
+	// }
 
-	if err := unit.pw.writer.Close(); err != nil {
-		return fmt.Errorf("failed to close the file: %s", err)
-	}
 	return nil
 }
 
-func (c *Client) downloadSegment(req *http.Request, pw *progressWriter) error {
+func (c *Client) downloadSegment(req *http.Request, f *os.File) error {
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to get the response from: %s", req.URL)
@@ -300,10 +300,16 @@ func (c *Client) downloadSegment(req *http.Request, pw *progressWriter) error {
 		return fmt.Errorf("received non-OK response status: %s", resp.Status)
 	}
 
-	_, err = io.Copy(pw, resp.Body)
+	n, err := io.Copy(f, resp.Body)
 	if err != nil {
 		fmt.Println("Failed to copy to pw: ", err)
 		return err
 	}
+
+	c.progressCh <- types.ProgresbarChanData{
+		Text:  f.Name(),
+		Bytes: n,
+	}
+
 	return nil
 }

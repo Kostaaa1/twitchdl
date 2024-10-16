@@ -9,6 +9,7 @@ import (
 	"github.com/Kostaaa1/twitchdl/internal/config"
 	"github.com/Kostaaa1/twitchdl/internal/prompt"
 	"github.com/Kostaaa1/twitchdl/twitch"
+	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/Kostaaa1/twitchdl/view/components"
 )
 
@@ -33,7 +34,8 @@ func main() {
 		}
 	}
 
-	units, progressCh := prompt.ProcessInput(tw)
+	units := prompt.ProcessInput(tw)
+	progressCh := make(chan types.ProgresbarChanData, len(units))
 	tw.SetProgressChannel(progressCh)
 
 	if jsonCfg.ShowDownloadSpinner {

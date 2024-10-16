@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Kostaaa1/twitchdl/internal/m3u8"
+	"github.com/Kostaaa1/twitchdl/types"
 )
 
 func (c *Client) GetLivestreamCreds(id string) (string, string, error) {
@@ -117,16 +118,17 @@ func (c *Client) RecordStream(unit MediaUnit) error {
 	tickCount := 0
 	var halfBytes *bytes.Reader
 
+	f, err := os.Create(unit.DestPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
 	for {
 		select {
 		case <-ticker.C:
 			tickCount++
-
-			f, err := os.OpenFile(unit.DestPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
+			var n int64
 
 			if tickCount%2 != 0 {
 				b, err := c.fetch(mediaList.URL)
@@ -143,16 +145,24 @@ func (c *Client) RecordStream(unit MediaUnit) error {
 
 				half := len(bodyBytes) / 2
 				halfBytes = bytes.NewReader(bodyBytes[half:])
-				if _, err := io.Copy(unit.pw, bytes.NewReader(bodyBytes[:half])); err != nil {
+
+				n, err = io.Copy(f, bytes.NewReader(bodyBytes[:half]))
+				if err != nil {
 					return err
 				}
 			}
 
 			if tickCount%2 == 0 && halfBytes.Len() > 0 {
-				if _, err := io.Copy(unit.pw, halfBytes); err != nil {
+				n, err = io.Copy(f, halfBytes)
+				if err != nil {
 					return err
 				}
 				halfBytes.Reset([]byte{})
+			}
+
+			c.progressCh <- types.ProgresbarChanData{
+				Text:  f.Name(),
+				Bytes: n,
 			}
 		}
 	}
