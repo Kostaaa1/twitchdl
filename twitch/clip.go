@@ -87,8 +87,6 @@ func (c *Client) DownloadClip(unit MediaUnit) error {
 		return err
 	}
 
-	fmt.Println("\nUSHER", usherURL)
-
 	req, err := http.NewRequest(http.MethodGet, usherURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create the new request for stream: %s", err)

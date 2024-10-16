@@ -34,7 +34,6 @@ func (pw *progressWriter) Close() error {
 }
 
 func NewProgressWriter(dstPath string, progressCh chan<- types.ProgresbarChanData) (*progressWriter, error) {
-	// create file outside, use SetWriter before writing
 	f, err := os.Create(dstPath)
 	if err != nil {
 		return nil, err

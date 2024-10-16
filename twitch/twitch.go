@@ -54,7 +54,6 @@ func (c *Client) NewMediaUnit(url, quality, output string, start, end time.Durat
 		return MediaUnit{}, err
 	}
 	quality = getResolution(quality, vtype)
-	fmt.Println("quality", quality, vtype, TypeVOD)
 
 	if vtype == TypeVOD {
 		if start > 0 && end > 0 && start >= end {
@@ -291,7 +290,6 @@ func (c *Client) Downloader(unit MediaUnit) error {
 }
 
 func (c *Client) downloadSegment(req *http.Request, pw *progressWriter) error {
-	fmt.Println("\n Downloading segment: ", req.URL)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to get the response from: %s", req.URL)

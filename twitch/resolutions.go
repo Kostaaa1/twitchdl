@@ -1,7 +1,6 @@
 package twitch
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -10,11 +9,9 @@ var (
 )
 
 func getResolution(quality string, vtype VideoType) string {
-	fmt.Println(vtype)
 	for i, q := range resolutionKeys {
 		if quality == "best" {
 			if vtype == TypeVOD {
-				fmt.Println("USLU? ")
 				return "chunked"
 			}
 			return "best"

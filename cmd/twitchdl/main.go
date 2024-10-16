@@ -34,7 +34,6 @@ func main() {
 	}
 
 	units, progressCh := prompt.ProcessInput(tw)
-	fmt.Println("UNITS:", units)
 	tw.SetProgressChannel(progressCh)
 
 	if jsonCfg.ShowDownloadSpinner {
