@@ -2,13 +2,12 @@ package prompt
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/Kostaaa1/twitchdl/twitch"
+	"github.com/Kostaaa1/twitchdl/pkg/twitch"
 )
 
 type Prompt struct {
@@ -66,8 +65,7 @@ func processFileInput(tw *twitch.Client, input string) []twitch.MediaUnit {
 	for _, b := range body {
 		unit, err := tw.NewMediaUnit(b.Input, b.Quality, b.Output, b.Start, b.End)
 		if err != nil {
-			fmt.Println(err)
-			continue
+			panic(err)
 		}
 		units = append(units, unit)
 	}
@@ -82,7 +80,7 @@ func processFlagInput(tw *twitch.Client, prompt *Prompt) []twitch.MediaUnit {
 	for _, url := range urls {
 		unit, err := tw.NewMediaUnit(url, prompt.Quality, prompt.Output, prompt.Start, prompt.End)
 		if err != nil {
-			continue
+			panic(err)
 		}
 		units = append(units, unit)
 	}

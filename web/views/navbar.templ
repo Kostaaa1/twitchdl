@@ -1,0 +1,20 @@
+package views
+
+templ Logo() {
+	<div class="flex cursor-pointer gap-2 items-end text-2xl font-semibold justify-center">
+		<img src="/static/images/glitch_flat_white.png" width="22" height="22">
+		<h1>
+			Twitch<span class="text-purple-300">Rip</span>
+		</h1>
+	</div>
+}
+
+templ Navbar() {
+	<nav class="flex w-screen justify-between bg-gradient-to-b from-purple-900 to-purple-800 text-white text-xl p-6 items-center">
+		@Logo()	
+		<div class="flex gap-6">
+			<a href="#">Home</a>
+			<a href="#instructions">Instructions</a>
+		</div>
+	</nav>
+}

@@ -5,13 +5,59 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/Kostaaa1/twitchdl/types"
 	"github.com/spf13/viper"
 )
 
-func Get() (*types.JsonConfig, error) {
-	var data types.JsonConfig
+type Data struct {
+	BroadcasterType string    `json:"broadcasterType"`
+	Colors          Colors    `json:"colors"`
+	CreatedAt       time.Time `json:"createdAt"`
+	Creds           struct {
+		AccessToken  string `json:"accessToken"`
+		ClientID     string `json:"clientId"`
+		ClientSecret string `json:"clientSecret"`
+	} `json:"creds"`
+	Description     string   `json:"description"`
+	DisplayName     string   `json:"displayName"`
+	ID              string   `json:"id"`
+	Login           string   `json:"login"`
+	OfflineImageURL string   `json:"offlineImageUrl"`
+	OpenedChats     []string `json:"openedChats"`
+	Paths           struct {
+		ChromePath string `json:"chromePath"`
+		OutputPath string `json:"outputPath"`
+	} `json:"paths"`
+	ProfileImageURL string `json:"profileImageUrl"`
+	ShowTimestamps  bool   `json:"showTimestamps"`
+	Type            string `json:"type"`
+}
+
+type Colors struct {
+	Primary   string `json:"primary"`
+	Secondary string `json:"secondary"`
+	Danger    string `json:"danger"`
+	Border    string `json:"border"`
+	Icons     struct {
+		Broadcaster string `json:"broadcaster"`
+		Mod         string `json:"mod"`
+		Staff       string `json:"staff"`
+		Vip         string `json:"vip"`
+	} `json:"icons"`
+	Messages struct {
+		Announcement string `json:"announcement"`
+		First        string `json:"first"`
+		Original     string `json:"original"`
+		Raid         string `json:"raid"`
+		Sub          string `json:"sub"`
+	} `json:"messages"`
+	Timestamp string `json:"timestamp"`
+}
+
+func Get() (*Data, error) {
+	var data Data
+
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
